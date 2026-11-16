@@ -98,7 +98,8 @@ def _check_conflicts(
     """
     col = db.collection("therapySessions")
     # Only check scheduled sessions
-    snaps = col.where("centerId", "==", centerId).where("status", "==", "scheduled").get()
+    q = col.where("centerId", "==", centerId).where("status", "==", "scheduled")
+    snaps = q.stream() if hasattr(q, "stream") else q.get()
 
     for snap in snaps:
         if exclude_id and snap.id == exclude_id:
@@ -189,7 +190,7 @@ async def list_sessions(
     if status:
         q = q.where("status", "==", status)
 
-    snaps = q.get()
+    snaps = q.stream() if hasattr(q, "stream") else q.get()
     sessions = [_session_to_dict(s) for s in snaps]
 
     # ── Date range filter (in-memory — avoids composite index requirement) ─
