@@ -1,1507 +1,119 @@
-"use client";
-import { restoreIep } from "@/lib/workflow-state";
-
-import { useState, useEffect } from "react";
-import { useAuth } from "@/lib/auth-context";
-import { studentsDb, iepDb, abcDb, regressionDb, StudentDoc, scopeOf } from "@/lib/firestore-api";
-import type { RegressionAlertDoc } from "@/lib/firestore-api";
-import { smartCompletenessWarnings } from "@/lib/iep-validation";
-import { IEPGoal, MedicalProfile, CarePlan, ABCIncident } from "@/types";
-import toast from "react-hot-toast";
-
-import RegressionAlertsBanner from "@/components/students/RegressionAlertsBanner";
-import {
-  BrainCircuit,
-  Sparkles,
-  Plus,
-  Trash2,
-  Save,
-  CheckCircle,
-  AlertTriangle,
-  FileText,
-  Clock,
-  Target,
-  Activity,
-  ShieldAlert,
-  Trophy,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
-
-function displayIepHistoryDate(value: unknown): string {
-  try {
-    const date = typeof value === "string"
-      ? new Date(value)
-      : value && typeof value === "object" && "toDate" in value && typeof value.toDate === "function"
-        ? value.toDate()
-        : null;
-    return date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : "date unavailable";
-  } catch {
-    return "date unavailable";
-  }
-}
-
-export default function IEPBuilderPage() {
-  const { profile, user, loading } = useAuth();
-  const [students, setStudents] = useState<StudentDoc[]>([]);
-  const [selectedStudentId, setSelectedStudentId] = useState<string>("");
-  const [selectedStudent, setSelectedStudent] = useState<StudentDoc | null>(null);
-
-  // Student Context State
-  const [medicalProfile, setMedicalProfile] = useState<MedicalProfile | null>(null);
-  const [abcIncidents, setAbcIncidents] = useState<ABCIncident[]>([]);
-  const [activeRegressionAlerts, setActiveRegressionAlerts] = useState<RegressionAlertDoc[]>([]);
-  const [alertKey, setAlertKey] = useState(0);
-  const [loadingStudentData, setLoadingStudentData] = useState(false);
-
-  // IEP Editor State
-  const [goals, setGoals] = useState<IEPGoal[]>([]);
-  const [achievedGoals, setAchievedGoals] = useState<IEPGoal[]>([]);
-  const [pendingAiGoal, setPendingAiGoal] = useState<IEPGoal | null>(null);
-  const [isGeneratingNextGoal, setIsGeneratingNextGoal] = useState(false);
-  const [showAchievedHistory, setShowAchievedHistory] = useState(false);
-  const [iepSummary, setIepSummary] = useState<string>("");
-  const [careVersion, setCareVersion] = useState(0);
-  const [iepVersions, setIepVersions] = useState<Array<Record<string, unknown> & { id: string }>>([]);
-  const [disclaimer, setDisclaimer] = useState<string>("");
-  const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [insufficientDataMsg, setInsufficientDataMsg] = useState<string>("");
-  const [showManualAdd, setShowManualAdd] = useState<boolean>(false);
-  const [newGoal, setNewGoal] = useState<Partial<IEPGoal>>({
-    goalArea: "Communication & Speech",
-    title: "",
-    targetTimeframe: "3 Months",
-    measurementMethod: "Daily therapist observation logs",
-    rationale: "",
-    milestones: [],
-  });
-
-  // Access control:
-  // All 4 roles can view the student's IEP, but ONLY Therapist can generate, edit, add, delete, and finalize.
-  const isAuthorized =
-    profile?.role === "therapist" ||
-    profile?.role === "teacher" ||
-    profile?.role === "admin" ||
-    profile?.role === "parent";
-
-  const isTherapist = profile?.role === "therapist";
-  const canEdit = isTherapist;
-  const smartWarnings = goals.flatMap((goal, index) =>
-    smartCompletenessWarnings(goal).map((message) => ({ goal: index + 1, message }))
-  );
-
-  // Load Students
-  useEffect(() => {
-    async function loadStudents() {
-      if (!isAuthorized) return;
-      try {
-        const list = await studentsDb.list(scopeOf(profile));
-        setStudents(list);
-        if (list.length > 0) {
-          setSelectedStudentId(list[0].id);
-        }
-      } catch (err) {
-        console.error("Failed to load students", err);
-        toast.error("Could not load students list.");
-      }
-    }
-    loadStudents();
-  }, [profile, isAuthorized]);
-
-  // Load Context Data when student changes
-  useEffect(() => {
-    if (!selectedStudentId) return;
-    const current = students.find((s) => s.id === selectedStudentId) || null;
-    setSelectedStudent(current);
-    setInsufficientDataMsg("");
-    setGoals([]);
-    setIepSummary("");
-    setIepVersions([]);
-    setAchievedGoals([]);   // clear previous student's history
-    setPendingAiGoal(null); // clear previous student's pending AI suggestion
-
-    async function fetchStudentContext() {
-      setLoadingStudentData(true);
-
-      // Fetch each independently so one failure doesn't block the others
-      let medData: MedicalProfile | Record<string, unknown> = {};
-      let careData: CarePlan | Record<string, unknown> = {};
-      let abcData: ABCIncident[] = [];
-      let versionData: Array<Record<string, unknown> & { id: string }> = [];
-
-      try {
-        medData = (await studentsDb.getMedical(selectedStudentId)) as MedicalProfile;
-      } catch (e) {
-        console.warn("getMedical failed:", e);
-      }
-      try {
-        careData = (await studentsDb.getCarePlan(selectedStudentId)) as CarePlan;
-      } catch (e) {
-        console.warn("getCarePlan failed:", e);
-      }
-      let alertsData: RegressionAlertDoc[] = [];
-      try {
-        abcData = (await abcDb.listIncidents(selectedStudentId, scopeOf(profile), 10)) as ABCIncident[];
-      } catch (e) {
-        console.warn("listIncidents failed:", e);
-      }
-
-      if (profile?.centerId) {
-        try {
-          const list = await regressionDb.listForStudent(selectedStudentId, profile.centerId);
-          alertsData = list.filter((a) => !a.resolved);
-        } catch (e) {
-          console.warn("listForStudent alerts failed:", e);
-        }
-      }
-
-      try {
-        versionData = await iepDb.listIEPRecords(selectedStudentId) as Array<Record<string, unknown> & { id: string }>;
-      } catch (e) {
-        console.warn("Could not load finalized IEP history:", e);
-      }
-
-      if (!active) return;
-      setMedicalProfile(medData as MedicalProfile);
-      setAbcIncidents(abcData || []);
-      setActiveRegressionAlerts(alertsData);
-      setIepVersions(versionData);
-
-      // Pre-populate with IEP goals based on role:
-      // - Therapist: only restore if a real IEP was previously saved (Active or draft).
-      //   Seeded care-plan tracking goals are intentionally ignored so therapist
-      //   starts with 0 goals and must click "Generate IEP with AI".
-      // - All other roles (admin, teacher, parent): always show whatever goals exist.
-      const currentCare = careData as CarePlan;
-      const rawCare = careData as unknown as Record<string, unknown>;
-      const draft = rawCare.draftIep as Record<string, unknown> | undefined;
-      setCareVersion(Number(profile?.role === "therapist" && draft ? draft.expectedVersion ?? rawCare.version ?? 0 : rawCare.version ?? 0));
-      const hasRealIep =
-        currentCare.iepStatus === "Active" ||
-        rawCare.draftIep != null ||
-        (Array.isArray(currentCare.achievedGoals) && (currentCare.achievedGoals?.length ?? 0) > 0);
-
-      const restored = restoreIep(rawCare, profile?.role === "therapist");
-      if (restored.draft) {
-        setGoals(restored.goals as IEPGoal[]);
-        setIepSummary(restored.summary);
-        setDisclaimer("This is your saved draft. It has not been finalized.");
-      } else if (
-        currentCare &&
-        Array.isArray(currentCare.goals) &&
-        currentCare.goals.length > 0 &&
-        (profile?.role !== "therapist" || hasRealIep)
-      ) {
-        setGoals(restored.goals as IEPGoal[]);
-        if (currentCare.iepSummary) setIepSummary(currentCare.iepSummary);
-        if (currentCare.iepStatus === "Active") {
-          setDisclaimer("This is the active finalized IEP plan for this student.");
-        }
-      }
-
-      // Always load achieved goals history and pending AI suggestion (therapist workflow)
-      if (Array.isArray(currentCare.achievedGoals)) {
-        setAchievedGoals(currentCare.achievedGoals);
-      }
-      if (currentCare.pendingAiGoal) {
-        setPendingAiGoal(currentCare.pendingAiGoal as IEPGoal);
-      } else {
-        setPendingAiGoal(null);
-      }
-
-      setLoadingStudentData(false);
-    }
-
-    let active = true;
-    fetchStudentContext();
-    return () => { active = false; };
-  }, [selectedStudentId, students, profile]);
-
-  // Trigger AI Generation
-  const handleGenerateIEP = async () => {
-    if (!selectedStudentId) {
-      toast.error("Please select a student first.");
-      return;
-    }
-
-    setIsGenerating(true);
-    setInsufficientDataMsg("");
-
-    try {
-      // Call backend AI endpoint
-      const token = await user?.getIdToken();
-      if (!token) throw new Error("Your session has expired. Please sign in again.");
-
-      // Fetch active regression alerts for this student if available
-      let studentAlerts: unknown[] = [];
-      if (profile?.centerId) {
-        try {
-          studentAlerts = await regressionDb.listForStudent(selectedStudentId, profile.centerId);
-        } catch (e) {
-          console.warn("Could not fetch regression alerts for IEP generation:", e);
-        }
-      }
-
-      const currentStudentObj = selectedStudent || students.find((s) => s.id === selectedStudentId);
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/ai-insights/iep/${selectedStudentId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          student: currentStudentObj || { id: selectedStudentId, name: "Student" },
-          medical: medicalProfile,
-          incidents: abcIncidents,
-          regressionAlerts: studentAlerts,
-        }),
-      });
-
-
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.detail || `Server responded with status ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (!data.sufficientData) {
-        setInsufficientDataMsg(data.summary);
-        toast.error("Insufficient background data for AI generation.");
-        return;
-      }
-
-      setGoals(data.goals || []);
-      setIepSummary(data.summary || "");
-      setDisclaimer(
-        data.disclaimer ||
-          "DRAFT RECOMMENDATION: Must be reviewed and approved by a certified therapist or educator."
-      );
-      toast.success("AI Draft IEP generated successfully!");
-    } catch (err: unknown) {
-      const errorMsg = err instanceof Error ? err.message : "Failed to generate AI IEP. Ensure Backend is configured.";
-      console.warn("AI generation failed, fallback / error notice:", err);
-      toast.error(errorMsg);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Goal Manipulation Helpers
-  const handleUpdateGoalField = (
-    index: number,
-    field: keyof IEPGoal,
-    value: IEPGoal[keyof IEPGoal]
-  ) => {
-    setGoals((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  };
-
-  const handleDeleteGoal = (index: number) => {
-    setGoals((prev) => prev.filter((_, i) => i !== index));
-    toast.success("Goal removed.");
-  };
-
-  const handleAddMilestone = (goalIndex: number) => {
-    setGoals((prev) => {
-      const updated = [...prev];
-      const goal = updated[goalIndex];
-      const newMilestone = {
-        id: `m_${Date.now()}`,
-        description: "New progress milestone",
-        completed: false,
-        targetDate: "Month 1",
-      };
-      goal.milestones = [...(goal.milestones || []), newMilestone];
-      return updated;
-    });
-  };
-
-  const handleUpdateMilestone = (
-    goalIndex: number,
-    milestoneIndex: number,
-    field: "description" | "completed" | "targetDate",
-    value: string | boolean
-  ) => {
-    setGoals((prev) => {
-      const updated = [...prev];
-      const goal = updated[goalIndex];
-      if (goal.milestones && goal.milestones[milestoneIndex]) {
-        goal.milestones[milestoneIndex] = {
-          ...goal.milestones[milestoneIndex],
-          [field]: value,
-        };
-      }
-      return updated;
-    });
-  };
-
-  const handleDeleteMilestone = (goalIndex: number, milestoneIndex: number) => {
-    setGoals((prev) => {
-      const updated = [...prev];
-      const goal = updated[goalIndex];
-      if (goal.milestones) {
-        goal.milestones = goal.milestones.filter((_, mi) => mi !== milestoneIndex);
-      }
-      return updated;
-    });
-  };
-
-  const handleAddManualGoal = () => {
-    if (!newGoal.title?.trim()) {
-      toast.error("Please enter a goal title.");
-      return;
-    }
-
-    const created: IEPGoal = {
-      id: `manual_${Date.now()}`,
-      title: newGoal.title,
-      goalArea: newGoal.goalArea || "General",
-      status: "In Progress",
-      progressPercent: 0,
-      targetTimeframe: newGoal.targetTimeframe || "3 Months",
-      measurementMethod: newGoal.measurementMethod || "Direct Observation",
-      rationale: newGoal.rationale || "Manual clinical entry",
-      milestones: [
-        {
-          id: `m_${Date.now()}_1`,
-          description: "Initial baseline step",
-          completed: false,
-          targetDate: "Month 1",
-        },
-      ],
-    };
-
-    setGoals((prev) => [...prev, created]);
-    setNewGoal({
-      goalArea: "Communication & Speech",
-      title: "",
-      targetTimeframe: "3 Months",
-      measurementMethod: "Daily observation logs",
-      rationale: "",
-    });
-    setShowManualAdd(false);
-    toast.success("New goal added.");
-  };
-
-  // Mark a goal as Achieved â†’ moves it to history, auto-resolves matching regression alerts, triggers Next Goal
-  const handleMarkAchieved = async (goalId: string) => {
-    if (!selectedStudentId) return;
-    const achievingGoal = goals.find((g) => g.id === goalId);
-    try {
-      const saved = await iepDb.markGoalAchieved(selectedStudentId, goalId);
-      setCareVersion(saved.version);
-      setAchievedGoals(saved.achievedGoals as unknown as IEPGoal[]);
-      setGoals(saved.goals as unknown as IEPGoal[]);
-
-      // â”€â”€ Auto-resolve matching active regression alert for this student (Therapist flow) â”€â”€
-      if (profile?.role === "therapist" && profile?.centerId) {
-        try {
-          const studentAlerts = await regressionDb.listForStudent(selectedStudentId, profile.centerId);
-          const activeAlerts = studentAlerts.filter((a) => !a.resolved);
-          
-          // Resolve matching alert, or if all goals are completed or it's a remedial goal, resolve active alert
-          const alertsToResolve = activeAlerts.filter((a) => {
-            if (!achievingGoal) return true;
-            const aTitle = (a.goalTitle || "").toLowerCase();
-            const gTitle = (achievingGoal.title || "").toLowerCase();
-            const gRationale = (achievingGoal.rationale || "").toLowerCase();
-            return (
-              (aTitle && (gTitle.includes(aTitle) || aTitle.includes(gTitle))) ||
-              (a.goalId && a.goalId === achievingGoal.id) ||
-              gRationale.includes("regression") ||
-              gRationale.includes("recover") ||
-              gRationale.includes("remediat") ||
-              gRationale.includes(aTitle)
-            );
-          });
-
-          const finalTargets = alertsToResolve.length > 0 ? alertsToResolve : (activeAlerts.length > 0 ? [activeAlerts[0]] : []);
-
-          for (const targetAlert of finalTargets) {
-            await regressionDb.resolve(
-              targetAlert.id,
-              {
-                resolvedBy: user?.uid,
-                resolvedByName: profile?.name || "Therapist",
-                remedialGoalId: achievingGoal?.id || goalId,
-                remedialGoalTitle: achievingGoal?.title || "Remedial SMART Goal",
-                resolutionNote: `Skill successfully recovered and verified. Remedial goal "${achievingGoal?.title || ''}" reached 100% mastery.`,
-              },
-              user?.getIdToken.bind(user)
-            );
-          }
-
-          if (finalTargets.length > 0) {
-            const resolvedIds = new Set(finalTargets.map((a) => a.id));
-            setActiveRegressionAlerts((prev) => prev.filter((a) => !resolvedIds.has(a.id)));
-            setAlertKey((k) => k + 1);
-            toast.success(`Regression alert resolved & moved to Recovery History! ğŸ›¡ï¸`);
-          }
-        } catch (alertErr) {
-          console.warn("Could not auto-resolve regression alert:", alertErr);
-        }
-      }
-
-      toast.success("Goal marked as Achieved! You can now generate the next progressive goal.");
-    } catch (err) {
-      console.error(err);
-      toast.error(err instanceof Error ? err.message : "Failed to mark goal as achieved.");
-    }
-  };
-
-  // Generate next progressive SMART goal based on the most recently achieved goal
-  const handleGenerateNextGoal = async () => {
-    if (!selectedStudentId || achievedGoals.length === 0) return;
-    setIsGeneratingNextGoal(true);
-    try {
-      const lastAchieved = achievedGoals[achievedGoals.length - 1];
-      const token = await user?.getIdToken();
-      if (!token) throw new Error("Your session has expired. Please sign in again.");
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/ai-insights/iep/${selectedStudentId}/next-goal`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ achieved_goal: lastAchieved }),
-        }
-      );
-      if (!response.ok) {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.detail || `Server error ${response.status}`);
-      }
-      const data = await response.json();
-      const suggested: IEPGoal = { ...data.goal, status: "In Progress", progressPercent: 0 };
-      // Save as pending in Firestore so it persists across sessions
-      await iepDb.savePendingAiGoal(selectedStudentId, suggested as unknown as Record<string, unknown>);
-      setPendingAiGoal(suggested);
-      toast.success("AI next goal generated! Review and accept to add it to the active plan.");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to generate next goal.";
-      toast.error(msg);
-    } finally {
-      setIsGeneratingNextGoal(false);
-    }
-  };
-
-  // Accept the pending AI goal â†’ move it into active goals[]
-  const handleAcceptPendingGoal = async () => {
-    if (!selectedStudentId || !pendingAiGoal) return;
-    try {
-      const saved = await iepDb.acceptPendingAiGoal(selectedStudentId, pendingAiGoal as unknown as Record<string, unknown>);
-      setCareVersion(saved.version);
-      setGoals(saved.goals as unknown as IEPGoal[]);
-      setAchievedGoals(saved.achievedGoals as unknown as IEPGoal[]);
-      setPendingAiGoal(null);
-      toast.success("Goal added to active IEP plan!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to accept goal.");
-    }
-  };
-
-  // Dismiss the pending AI suggestion
-  const handleDismissPendingGoal = async () => {
-    if (!selectedStudentId) return;
-    try {
-      await iepDb.dismissPendingAiGoal(selectedStudentId);
-      setPendingAiGoal(null);
-      toast("AI suggestion dismissed.");
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  // Save as Draft
-  const handleSaveDraft = async () => {
-    if (!selectedStudentId) return;
-    setIsSaving(true);
-    try {
-      await iepDb.saveDraft(
-        selectedStudentId,
-        {
-          goals,
-          summary: iepSummary,
-          expectedVersion: careVersion,
-          centerId: profile?.centerId || "demo-center-001",
-          generatedByAi: Boolean(iepSummary),
-        },
-        user?.uid,
-        profile?.name
-      );
-      toast.success("Draft IEP saved to Firestore.");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to save draft.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Finalize IEP
-  const handleFinalizeIEP = async () => {
-    if (!selectedStudentId) return;
-    if (goals.length === 0) {
-      toast.error("Cannot finalize an IEP with zero goals.");
-      return;
-    }
-
-    if (smartWarnings.length > 0) {
-      const review = smartWarnings.map((warning) => `Goal ${warning.goal}: ${warning.message}`).join("\n");
-      const accepted = window.confirm(
-        `SMART completeness reminders:\n\n${review}\n\nThis check cannot assess clinical achievability or appropriateness. Review the plan professionally. Finalize anyway?`
-      );
-      if (!accepted) return;
-    }
-
-    setIsSaving(true);
-    try {
-      await iepDb.finalize(
-        selectedStudentId,
-        {
-          goals,
-          summary: iepSummary,
-          expectedVersion: careVersion,
-          centerId: profile?.centerId || "demo-center-001",
-          generatedByAi: Boolean(iepSummary),
-        },
-        user?.uid,
-        profile?.name
-      );
-      setIepVersions(await iepDb.listIEPRecords(selectedStudentId) as Array<Record<string, unknown> & { id: string }>);
-      toast.success("IEP Finalized & synchronized with student's active Care Plan! ğŸ¯");
-      setCareVersion(version => version + 1);
-    } catch (err) {
-      console.error(err);
-      toast.error(err instanceof Error ? err.message : "Failed to finalize IEP.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div style={{ padding: "60px 20px", textAlign: "center" }}>
-        <div className="spinner" style={{ margin: "0 auto 16px" }} />
-        <p style={{ color: "var(--text-secondary)", fontSize: "0.9rem" }}>Loading IEP Builder profile...</p>
-      </div>
-    );
-  }
-
-  if (!isAuthorized) {
-    return (
-      <div style={{ padding: "30px", textAlign: "center" }}>
-        <ShieldAlert size={48} style={{ color: "var(--danger)", margin: "0 auto 16px" }} />
-        <h2 style={{ fontWeight: 800, color: "var(--primary-dark)" }}>Access Restricted</h2>
-        <p style={{ color: "var(--text-secondary)" }}>
-          Only Therapists, Teachers, and Administrators have permission to access the AI-Assisted IEP Builder.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="animate-fade-in" style={{ padding: "8px 4px 40px", display: "flex", flexDirection: "column", gap: "24px" }}>
-      {/* Top Banner Header */}
-      <div
-        className="glass-card"
-        style={{
-          padding: "24px",
-          background: "linear-gradient(135deg, rgba(230, 243, 243, 0.95), rgba(243, 237, 247, 0.95))",
-          border: "1px solid rgba(123, 196, 196, 0.3)",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          flexWrap: "wrap",
-          gap: "16px",
-        }}
-      >
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "4px" }}>
-            <div
-              style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "10px",
-                background: "var(--primary)",
-                color: "white",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <BrainCircuit size={24} />
-            </div>
-            <h1 style={{ margin: 0, fontSize: "1.4rem", fontWeight: 800, color: "var(--primary-dark)" }}>
-              AI-Assisted IEP Builder
-            </h1>
-          </div>
-          <p style={{ margin: 0, fontSize: "0.88rem", color: "var(--text-secondary)" }}>
-            Synthesize student clinical profiles, ABC behavioral data, and milestones into actionable SMART IEP goals.
-          </p>
-        </div>
-
-        {/* Student Dropdown Selector */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <label style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-dark)" }}>
-            Select Student:
-          </label>
-          <select
-            className="glass-input"
-            value={selectedStudentId}
-            onChange={(e) => setSelectedStudentId(e.target.value)}
-            style={{
-              padding: "10px 16px",
-              fontWeight: 600,
-              minWidth: "220px",
-              background: "white",
-              borderColor: "var(--accent-teal)",
-            }}
-          >
-            {students.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.diagnosis || "Special Care"})
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* Regression Alert Banner for Selected Student (if any alert exists) */}
-      {selectedStudentId && profile?.centerId && (
-        <RegressionAlertsBanner
-          key={`${selectedStudentId}-${alertKey}`}
-          centerId={profile.centerId}
-          studentId={selectedStudentId}
-        />
-      )}
-
-      {/* Main Grid: Student Context Summary vs. IEP Editor */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: "24px" }}>
-        {/* Left Column: Student Clinical & Behavioral Context */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-          <div className="glass-card" style={{ padding: "20px" }}>
-            <h3
-              style={{
-                margin: "0 0 16px",
-                fontSize: "1.05rem",
-                fontWeight: 700,
-                color: "var(--primary-dark)",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
-            >
-              <FileText size={18} style={{ color: "var(--accent-teal)" }} /> Student Background
-            </h3>
-
-            {loadingStudentData ? (
-              <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)" }}>Loading student profile...</p>
-            ) : selectedStudent ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px", fontSize: "0.85rem" }}>
-                <div>
-                  <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Diagnosis: </span>
-                  <span style={{ fontWeight: 700, color: "var(--primary-dark)" }}>
-                    {selectedStudent.diagnosis || "Not specified"}
-                  </span>
-                </div>
-                <div>
-                  <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Date of Birth: </span>
-                  <span>{selectedStudent.dob || "N/A"}</span>
-                </div>
-                <div>
-                  <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>IEP Status: </span>
-                  <span className="chip chip-info" style={{ marginLeft: "6px" }}>
-                    {selectedStudent.iepStatus || "Under Review"}
-                  </span>
-                </div>
-                <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)", paddingTop: "10px" }}>
-                  <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Physical/Sensory Needs: </span>
-                  <p style={{ margin: "4px 0 0", color: "var(--text-primary)" }}>
-                    {medicalProfile?.specialPhysicalNeeds || "None recorded"}
-                  </p>
-                </div>
-                <div>
-                  <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Allergies: </span>
-                  <span>{medicalProfile?.allergies?.length ? medicalProfile.allergies.join(", ") : "None reported"}</span>
-                </div>
-                <div>
-                  <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>Seizure Protocol: </span>
-                  <span>{medicalProfile?.seizureHistory?.hasHistory ? "âš ï¸ Active Seizure Protocol" : "No history"}</span>
-                </div>
-              </div>
-            ) : (
-              <p style={{ color: "var(--text-secondary)" }}>No student selected.</p>
-            )}
-          </div>
-
-          {/* Behavioral Signals Card */}
-          <div className="glass-card" style={{ padding: "20px" }}>
-            <h3
-              style={{
-                margin: "0 0 14px",
-                fontSize: "1.05rem",
-                fontWeight: 700,
-                color: "var(--primary-dark)",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
-            >
-              <Activity size={18} style={{ color: "var(--accent-purple)" }} /> Behavioral Signals (ABC Tracker)
-            </h3>
-            {abcIncidents.length === 0 ? (
-              <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
-                No recent ABC behavioral incidents logged for this student.
-              </p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {abcIncidents.slice(0, 3).map((inc) => (
-                  <div
-                    key={inc.id}
-                    style={{
-                      background: "rgba(255,255,255,0.7)",
-                      borderRadius: "8px",
-                      padding: "10px",
-                      border: "1px solid rgba(0,0,0,0.05)",
-                      fontSize: "0.8rem",
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, color: "var(--danger)", marginBottom: "4px" }}>
-                      Severity {inc.severity}/5 â€” {inc.location || "Classroom"}
-                    </div>
-                    <div><strong>Trigger:</strong> {inc.antecedent?.text || "N/A"}</div>
-                    <div><strong>Behavior:</strong> {inc.behavior?.text || "N/A"}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Active Regression Alerts Card (3rd Input) */}
-          <div className="glass-card" style={{ padding: "20px", border: activeRegressionAlerts.length > 0 ? "1px solid #f87171" : "none" }}>
-            <h3
-              style={{
-                margin: "0 0 14px",
-                fontSize: "1.05rem",
-                fontWeight: 700,
-                color: activeRegressionAlerts.length > 0 ? "#b91c1c" : "var(--primary-dark)",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
-            >
-              <AlertTriangle size={18} style={{ color: activeRegressionAlerts.length > 0 ? "#ef4444" : "#94a3b8" }} />
-              Skill Regression Signals ({activeRegressionAlerts.length})
-            </h3>
-            {activeRegressionAlerts.length === 0 ? (
-              <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", margin: 0 }}>
-                No active skill regression alerts detected. Baseline skills intact.
-              </p>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {activeRegressionAlerts.map((alt) => (
-                  <div
-                    key={alt.id}
-                    style={{
-                      background: "#fef2f2",
-                      borderRadius: "8px",
-                      padding: "10px",
-                      border: "1px solid #fecaca",
-                      fontSize: "0.8rem",
-                    }}
-                  >
-                    <div style={{ fontWeight: 700, color: "#991b1b", marginBottom: "4px" }}>
-                      âš ï¸ {alt.goalTitle || "Regressed Skill"}
-                    </div>
-                    <div style={{ color: "#7f1d1d" }}>
-                      Dropped from <strong>{alt.previousProgress}%</strong> to <strong>{alt.currentProgress}%</strong> ({alt.alertLevel || "Warning"})
-                    </div>
-                    {alt.reason && (
-                      <div style={{ fontSize: "0.75rem", color: "#6b7280", marginTop: "2px" }}>
-                        Reason: {alt.reason}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right Column: AI Generation Controls & Goals Editor */}
-        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-          {/* Action Bar */}
-          <div
-            className="glass-card"
-            style={{
-              padding: "18px 24px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: "12px",
-            }}
-          >
-            <div>
-              <h3 style={{ margin: 0, fontWeight: 800, color: "var(--primary-dark)", fontSize: "1.1rem" }}>
-                IEP Goals & Milestones Plan
-              </h3>
-              <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                {goals.length} Goal{goals.length === 1 ? "" : "s"} in this IEP Draft
-              </span>
-            </div>
-
-            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-              {canEdit ? (
-                <>
-                  <button
-                    className="btn-primary"
-                    onClick={handleGenerateIEP}
-                    disabled={isGenerating || loadingStudentData}
-                    style={{
-                      background: "#e6edf5",
-                      color: "var(--primary-dark)",
-                      border: "1px solid var(--accent-teal)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      padding: "10px 20px",
-                      fontWeight: 700,
-                    }}
-                  >
-                    <Sparkles size={16} />
-                    {isGenerating ? "Synthesizing with AI..." : "Generate IEP with AI"}
-                  </button>
-
-                  <button
-                    className="btn-ghost"
-                    onClick={() => setShowManualAdd(true)}
-                    style={{
-                      border: "1px solid var(--accent-teal)",
-                      color: "var(--primary-dark)",
-                      padding: "10px 16px",
-                      fontSize: "0.85rem",
-                      fontWeight: 600,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                    }}
-                  >
-                    <Plus size={16} /> Add Manual Goal
-                  </button>
-                </>
-              ) : (
-                <span className="chip chip-info" style={{ fontSize: "0.8rem", padding: "6px 14px", fontWeight: 600 }}>
-                  ğŸ‘ï¸ View Only Mode ({profile?.role})
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Insufficient Data Warning Alert */}
-          {insufficientDataMsg && (
-            <div
-              className="glass-card animate-slide-down"
-              style={{
-                padding: "16px",
-                background: "rgba(254, 243, 199, 0.9)",
-                border: "1px solid #f59e0b",
-                color: "#92400e",
-                display: "flex",
-                gap: "12px",
-                alignItems: "flex-start",
-              }}
-            >
-              <AlertTriangle size={20} style={{ flexShrink: 0, marginTop: "2px" }} />
-              <div style={{ fontSize: "0.88rem" }}>
-                <strong>Insufficient Data Notice:</strong> {insufficientDataMsg}
-                <div style={{ marginTop: "6px" }}>
-                  You can still manually construct the IEP below using the <strong>Add Manual Goal</strong> button.
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* AI Clinical Disclaimer Box */}
-          {disclaimer && (
-            <div
-              style={{
-                padding: "12px 16px",
-                background: "rgba(238, 242, 255, 0.8)",
-                border: "1px solid #818cf8",
-                borderRadius: "10px",
-                fontSize: "0.78rem",
-                color: "#3730a3",
-                lineHeight: 1.5,
-              }}
-            >
-              <strong>Clinical Advisory:</strong> {disclaimer}
-            </div>
-          )}
-
-          {/* Manual Add Goal Form */}
-          {showManualAdd && (
-            <div
-              className="glass-card animate-slide-down"
-              style={{
-                padding: "20px",
-                border: "2px solid var(--accent-teal)",
-                background: "white",
-              }}
-            >
-              <h4 style={{ margin: "0 0 14px", fontWeight: 700, color: "var(--primary-dark)" }}>
-                Add Custom IEP Goal
-              </h4>
-              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                  <div>
-                    <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-                      Goal Area
-                    </label>
-                    <select
-                      className="glass-input"
-                      value={newGoal.goalArea}
-                      onChange={(e) => setNewGoal({ ...newGoal, goalArea: e.target.value })}
-                      style={{ width: "100%", marginTop: "4px" }}
-                    >
-                      <option>Communication & Speech</option>
-                      <option>Fine & Gross Motor Skills</option>
-                      <option>Emotional Regulation & Behavior</option>
-                      <option>Social Interaction & Play</option>
-                      <option>Cognitive & Academic</option>
-                      <option>Daily Living & Independence</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-                      Target Timeframe
-                    </label>
-                    <input
-                      className="glass-input"
-                      value={newGoal.targetTimeframe}
-                      onChange={(e) => setNewGoal({ ...newGoal, targetTimeframe: e.target.value })}
-                      placeholder="e.g. 3 Months, 6 Months"
-                      style={{ width: "100%", marginTop: "4px" }}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-                    SMART Goal Statement
-                  </label>
-                  <textarea
-                    className="glass-input"
-                    rows={2}
-                    value={newGoal.title}
-                    onChange={(e) => setNewGoal({ ...newGoal, title: e.target.value })}
-                    placeholder="E.g., Student will use picture cards to request items in 4 out of 5 opportunities..."
-                    style={{ width: "100%", marginTop: "4px" }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: "0.8rem", fontWeight: 600, color: "var(--text-secondary)" }}>
-                    Measurement Method
-                  </label>
-                  <input
-                    className="glass-input"
-                    value={newGoal.measurementMethod}
-                    onChange={(e) => setNewGoal({ ...newGoal, measurementMethod: e.target.value })}
-                    placeholder="e.g., Weekly checklist by classroom teacher"
-                    style={{ width: "100%", marginTop: "4px" }}
-                  />
-                </div>
-
-                <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "8px" }}>
-                  <button className="btn-ghost" onClick={() => setShowManualAdd(false)}>
-                    Cancel
-                  </button>
-                  <button className="btn-primary" onClick={handleAddManualGoal}>
-                    Add to Plan
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Goals List */}
-          {goals.length === 0 && !showManualAdd ? (
-            <div className="glass-card" style={{ padding: "60px 20px", textAlign: "center" }}>
-              <Target size={48} style={{ color: "var(--text-secondary)", margin: "0 auto 16px" }} />
-              <h4 style={{ fontWeight: 700, color: "var(--primary-dark)", margin: "0 0 8px" }}>
-                No IEP Goals Configured Yet
-              </h4>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.88rem", maxWidth: "450px", margin: "0 auto 20px" }}>
-                Click <strong>Generate IEP with AI</strong> to analyze the student&apos;s clinical context, or click <strong>Add Manual Goal</strong> to draft custom milestones.
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-              {goals.map((goal, gIdx) => (
-                <div
-                  key={goal.id || gIdx}
-                  className="glass-card"
-                  style={{
-                    padding: "20px",
-                    borderLeft: "4px solid var(--accent-purple)",
-                    background: "white",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "12px", marginBottom: "12px" }}>
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "center" }}>
-                      <span className="chip chip-info" style={{ fontWeight: 700 }}>
-                        {goal.goalArea || "General Area"}
-                      </span>
-                      <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
-                        <Clock size={14} /> {goal.targetTimeframe || "3 Months"}
-                      </span>
-                    </div>
-
-                    {canEdit && (
-                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                        <button
-                          onClick={() => handleMarkAchieved(goal.id)}
-                          style={{
-                            background: "none",
-                            border: "1px solid var(--success)",
-                            borderRadius: "6px",
-                            color: "var(--success)",
-                            cursor: "pointer",
-                            padding: "4px 10px",
-                            fontSize: "0.75rem",
-                            fontWeight: 700,
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                          title="Mark this goal as Achieved"
-                        >
-                          <Trophy size={13} /> Mark Achieved
-                        </button>
-                        <button
-                          onClick={() => handleDeleteGoal(gIdx)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "var(--danger)",
-                            cursor: "pointer",
-                            padding: "4px",
-                          }}
-                          title="Remove Goal"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Goal Statement Text (Editable for therapist, read-only for others) */}
-                  <div style={{ marginBottom: "14px" }}>
-                    <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase" }}>
-                      SMART Goal Statement
-                    </label>
-                    <textarea
-                      className="glass-input"
-                      rows={2}
-                      value={goal.title}
-                      readOnly={!canEdit}
-                      onChange={(e) => canEdit && handleUpdateGoalField(gIdx, "title", e.target.value)}
-                      style={{
-                        width: "100%",
-                        marginTop: "4px",
-                        fontWeight: 600,
-                        color: "var(--primary-dark)",
-                        fontSize: "0.95rem",
-                        backgroundColor: canEdit ? "white" : "rgba(248, 250, 252, 0.6)",
-                        cursor: canEdit ? "text" : "default",
-                      }}
-                    />
-                  </div>
-
-                  {/* Measurement & Rationale */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
-                    <div>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-secondary)" }}>
-                        Measurement Method
-                      </label>
-                      <textarea
-                        className="glass-input"
-                        rows={2}
-                        value={goal.measurementMethod || ""}
-                        readOnly={!canEdit}
-                        onChange={(e) => canEdit && handleUpdateGoalField(gIdx, "measurementMethod", e.target.value)}
-                        placeholder="Observation / Checklist"
-                        style={{
-                          width: "100%",
-                          marginTop: "4px",
-                          fontSize: "0.85rem",
-                          backgroundColor: canEdit ? "white" : "rgba(248, 250, 252, 0.6)",
-                          cursor: canEdit ? "text" : "default",
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "var(--text-secondary)" }}>
-                        Clinical Rationale
-                      </label>
-                      <textarea
-                        className="glass-input"
-                        rows={2}
-                        value={goal.rationale || ""}
-                        readOnly={!canEdit}
-                        onChange={(e) => canEdit && handleUpdateGoalField(gIdx, "rationale", e.target.value)}
-                        placeholder="Tied to behavior / needs"
-                        style={{
-                          width: "100%",
-                          marginTop: "4px",
-                          fontSize: "0.85rem",
-                          backgroundColor: canEdit ? "white" : "rgba(248, 250, 252, 0.6)",
-                          cursor: canEdit ? "text" : "default",
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Progressive Milestones */}
-                  <div style={{ background: "rgba(248, 250, 252, 0.8)", padding: "14px", borderRadius: "10px" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
-                      <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--primary-dark)" }}>
-                        Progressive Milestones
-                      </span>
-                      {canEdit && (
-                        <button
-                          onClick={() => handleAddMilestone(gIdx)}
-                          style={{
-                            background: "none",
-                            border: "none",
-                            color: "var(--accent-teal)",
-                            fontSize: "0.8rem",
-                            fontWeight: 700,
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                          }}
-                        >
-                          <Plus size={14} /> Add Milestone
-                        </button>
-                      )}
-                    </div>
-
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                      {(goal.milestones || []).map((m, mIdx) => (
-                        <div
-                          key={m.id || mIdx}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "8px",
-                            background: "white",
-                            padding: "6px 10px",
-                            borderRadius: "6px",
-                            border: "1px solid rgba(0,0,0,0.06)",
-                          }}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={m.completed}
-                            disabled={!canEdit}
-                            onChange={(e) =>
-                              canEdit && handleUpdateMilestone(gIdx, mIdx, "completed", e.target.checked)
-                            }
-                            style={{ cursor: canEdit ? "pointer" : "default" }}
-                          />
-                          <input
-                            className="glass-input"
-                            value={m.description}
-                            readOnly={!canEdit}
-                            onChange={(e) =>
-                              canEdit && handleUpdateMilestone(gIdx, mIdx, "description", e.target.value)
-                            }
-                            placeholder="Milestone description"
-                            style={{ flex: 1, border: "none", background: "transparent", padding: "4px 8px", fontSize: "0.85rem" }}
-                          />
-                          <input
-                            className="glass-input"
-                            value={m.targetDate || ""}
-                            readOnly={!canEdit}
-                            onChange={(e) =>
-                              canEdit && handleUpdateMilestone(gIdx, mIdx, "targetDate", e.target.value)
-                            }
-                            placeholder="Target (e.g. Month 1)"
-                            style={{ width: "120px", border: "none", background: "rgba(0,0,0,0.04)", padding: "4px 8px", fontSize: "0.8rem" }}
-                          />
-                          {canEdit && (
-                            <button
-                              onClick={() => handleDeleteMilestone(gIdx, mIdx)}
-                              style={{ background: "none", border: "none", color: "#9ca3af", cursor: "pointer" }}
-                            >
-                              Ã—
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* â”€â”€ Generate Next Goal Banner (Therapist only, when at least one goal achieved) â”€â”€ */}
-          {canEdit && achievedGoals.length > 0 && !pendingAiGoal && (
-            <div
-              className="glass-card"
-              style={{
-                padding: "20px 24px",
-                background: "linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.06))",
-                border: "1px solid rgba(16,185,129,0.25)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: "16px",
-                flexWrap: "wrap",
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 800, color: "var(--primary-dark)", fontSize: "0.95rem", display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Trophy size={18} style={{ color: "#10b981" }} />
-                  Goal Achieved! Ready for Next Step
-                </div>
-                <div style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginTop: "4px" }}>
-                  The last achieved goal: <strong>&quot;{achievedGoals[achievedGoals.length - 1]?.title}&quot;</strong>
-                  <br />Generate the next progressive SMART goal based on this achievement and current student data.
-                </div>
-              </div>
-              <button
-                className="btn-primary"
-                onClick={handleGenerateNextGoal}
-                disabled={isGeneratingNextGoal}
-                style={{
-                  background: "linear-gradient(135deg, #10b981, #3b82f6)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "10px 20px",
-                  fontWeight: 700,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                <Sparkles size={16} />
-                {isGeneratingNextGoal ? "Generating..." : "Generate Next Goal with AI"}
-              </button>
-            </div>
-          )}
-
-          {/* â”€â”€ Pending AI Goal â€” Awaiting Therapist Review â”€â”€ */}
-          {canEdit && pendingAiGoal && (
-            <div
-              className="glass-card"
-              style={{
-                padding: "20px",
-                border: "2px dashed #f59e0b",
-                background: "rgba(254,243,199,0.5)",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", fontWeight: 800, color: "#92400e", fontSize: "0.95rem" }}>
-                  <Sparkles size={18} style={{ color: "#f59e0b" }} />
-                  AI-Suggested Next Goal â€” Pending Your Review
-                </div>
-                <div style={{ display: "flex", gap: "8px" }}>
-                  <button
-                    className="btn-ghost"
-                    onClick={handleDismissPendingGoal}
-                    style={{ fontSize: "0.8rem", padding: "6px 14px", color: "#9ca3af" }}
-                  >
-                    Dismiss
-                  </button>
-                  <button
-                    className="btn-primary"
-                    onClick={handleAcceptPendingGoal}
-                    style={{ fontSize: "0.85rem", padding: "8px 18px", fontWeight: 700, background: "#10b981", display: "flex", alignItems: "center", gap: "6px" }}
-                  >
-                    <CheckCircle size={15} /> Accept & Add to Plan
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ background: "white", borderRadius: "8px", padding: "16px", border: "1px solid rgba(245,158,11,0.2)" }}>
-                <div style={{ display: "flex", gap: "8px", marginBottom: "10px", flexWrap: "wrap" }}>
-                  <span className="chip chip-info" style={{ fontWeight: 700 }}>{pendingAiGoal.goalArea || "General"}</span>
-                  <span style={{ fontSize: "0.8rem", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "4px" }}>
-                    <Clock size={13} /> {pendingAiGoal.targetTimeframe || "3 Months"}
-                  </span>
-                </div>
-                <div style={{ fontWeight: 700, color: "var(--primary-dark)", fontSize: "0.95rem", marginBottom: "10px" }}>
-                  {pendingAiGoal.title}
-                </div>
-                {pendingAiGoal.measurementMethod && (
-                  <div style={{ marginBottom: "8px" }}>
-                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase" }}>Measurement Method</span>
-                    <pre style={{ margin: "4px 0 0", fontFamily: "inherit", fontSize: "0.82rem", color: "var(--text-primary)", whiteSpace: "pre-wrap" }}>
-                      {pendingAiGoal.measurementMethod}
-                    </pre>
-                  </div>
-                )}
-                {pendingAiGoal.milestones && pendingAiGoal.milestones.length > 0 && (
-                  <div>
-                    <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase" }}>Milestones</span>
-                    <ul style={{ margin: "4px 0 0", paddingLeft: "16px", fontSize: "0.82rem" }}>
-                      {pendingAiGoal.milestones.map((m) => (
-                        <li key={m.id}>{m.description} â€” <em>{m.targetDate}</em></li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Action Footer for Saving / Finalizing */}
-          {goals.length > 0 && canEdit && (
-            <div className="glass-card" style={{ padding: "14px 18px", borderLeft: `4px solid ${smartWarnings.length ? "var(--warning)" : "var(--success)"}` }}>
-              <strong style={{ color: "var(--primary-dark)" }}>SMART completeness review</strong>
-              <p style={{ margin: "6px 0", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
-                These drafting prompts check for observable wording, measurement detail, relevance and a timeframe. They do not rate clinical quality; therapist review remains required.
-              </p>
-              {smartWarnings.length > 0 ? (
-                <ul style={{ margin: 0, paddingLeft: 20, fontSize: "0.8rem", color: "var(--text-secondary)" }}>
-                  {smartWarnings.map((warning, index) => <li key={`${warning.goal}-${index}`}>Goal {warning.goal}: {warning.message}</li>)}
-                </ul>
-              ) : <span style={{ fontSize: "0.8rem", color: "var(--success)" }}>No completeness reminders. Confirm clinical appropriateness before finalizing.</span>}
-            </div>
-          )}
-          {goals.length > 0 && canEdit && (
-            <div
-              className="glass-card"
-              style={{
-                padding: "16px 24px",
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "14px",
-                alignItems: "center",
-              }}
-            >
-              <button
-                className="btn-ghost"
-                onClick={handleSaveDraft}
-                disabled={isSaving}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "10px 20px",
-                  fontWeight: 600,
-                }}
-              >
-                <Save size={16} /> Save Draft
-              </button>
-
-              <button
-                className="btn-primary"
-                onClick={handleFinalizeIEP}
-                disabled={isSaving}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  padding: "12px 28px",
-                  fontWeight: 700,
-                  background: "var(--success)",
-                }}
-              >
-                <CheckCircle size={18} /> Finalize IEP Plan
-              </button>
-            </div>
-          )}
-
-          {iepVersions.length > 0 && (
-            <div className="glass-card" style={{ padding: "16px 20px" }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: "0.95rem", color: "var(--primary-dark)" }}>Finalized IEP version history</h3>
-              <ol style={{ margin: 0, paddingLeft: 22, display: "grid", gap: 8 }}>
-                {iepVersions.map((version, index) => {
-                  const versionNumber = typeof version.version === "number" ? version.version : iepVersions.length - index;
-                  const author = typeof version.authorName === "string" ? version.authorName : "Therapist";
-                  const goalCount = Array.isArray(version.goals) ? version.goals.length : 0;
-                  return <li key={version.id} style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>
-                    Version {versionNumber} Â· {goalCount} goals Â· {author} Â· {displayIepHistoryDate(version.finalizedAt ?? version.updatedAt)}
-                  </li>;
-                })}
-              </ol>
-            </div>
-          )}
-
-          {/* â”€â”€ Achieved Goals History â”€â”€ */}
-          {achievedGoals.length > 0 && (
-            <div className="glass-card" style={{ padding: "16px 20px" }}>
-              <button
-                onClick={() => setShowAchievedHistory((v) => !v)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  fontWeight: 800,
-                  color: "var(--primary-dark)",
-                  fontSize: "0.95rem",
-                  width: "100%",
-                  justifyContent: "space-between",
-                  padding: 0,
-                }}
-              >
-                <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <Trophy size={18} style={{ color: "#10b981" }} />
-                  Achieved Goals History ({achievedGoals.length})
-                </span>
-                {showAchievedHistory ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-              </button>
-
-              {showAchievedHistory && (
-                <div style={{ marginTop: "14px", display: "flex", flexDirection: "column", gap: "10px" }}>
-                  {achievedGoals.map((ag) => (
-                    <div
-                      key={ag.id}
-                      style={{
-                        background: "rgba(16,185,129,0.06)",
-                        border: "1px solid rgba(16,185,129,0.2)",
-                        borderRadius: "8px",
-                        padding: "12px 16px",
-                        display: "flex",
-                        alignItems: "flex-start",
-                        gap: "12px",
-                      }}
-                    >
-                      <Trophy size={20} style={{ color: "#10b981", flexShrink: 0, marginTop: "2px" }} />
-                      <div>
-                        <div style={{ fontWeight: 700, color: "var(--primary-dark)", fontSize: "0.9rem" }}>{ag.title}</div>
-                        <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: "2px" }}>
-                          {ag.goalArea} &nbsp;Â·&nbsp; Achieved on {ag.achievedAt ? new Date(ag.achievedAt).toLocaleDateString() : "â€”"}
-                        </div>
-                      </div>
-                      <span className="chip" style={{ marginLeft: "auto", background: "rgba(16,185,129,0.15)", color: "#065f46", fontWeight: 700, fontSize: "0.72rem", flexShrink: 0 }}>
-                        âœ… Achieved
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíÛ_}Ñ:-jZ.¶›­–)Ş³R'W6R6Æ–VçB#°Ğ¦–×÷'B²&W7F÷&T–WÒg&öÒ$öÆ–"÷v÷&¶fÆ÷r×7FFR#°Ğ Ğ¦–×÷'B²W6U7FFRÂW6TVffV7BÒg&öÒ'&V7B#°Ğ¦–×÷'B²W6TWF‚Òg&öÒ$öÆ–"öWF‚Ö6öçFW‡B#°Ğ¦–×÷'B²7GVFVçG4F"Â–WF"Â&4F"Â&Vw&W76–öäF"Â7GVFVçDFö2Â66÷TöbÒg&öÒ$öÆ–"öf—&W7F÷&RÖ’#°Ğ¦–×÷'BG—R²&Vw&W76–öäÆW'DFö2Òg&öÒ$öÆ–"öf—&W7F÷&RÖ’#°Ğ¦–×÷'B²6Ö'D6ö×ÆWFVæW75v&æ–æw2Òg&öÒ$öÆ–"ö–W×fÆ–FF–öâ#°Ğ¦–×÷'B²f–æE÷76–&ÆTvöÄ6öæfÆ–7G2Òg&öÒ$öÆ–"övöÂÖ6öæfÆ–7G2#°Ğ¦–×÷'B²”UvöÂÂÖVF–6Å&öf–ÆRÂ6&UÆâÂ$4–æ6–FVçBÒg&öÒ$÷G—W2#°Ğ¦–×÷'BFö7Bg&öÒ'&V7BÖ†÷B×Fö7B#°Ğ Ğ¦–×÷'B&Vw&W76–öäÆW'G4&ææW"g&öÒ$ö6ö×öæVçG2÷7GVFVçG2õ&Vw&W76–öäÆW'G4&ææW"#°Ğ¦–×÷'B°Ğ¢'&–ä6—&7V—BÀĞ¢7&¶ÆW2ÀĞ¢ÇW2ÀĞ¢G&6ƒ"ÀĞ¢6fRÀĞ¢6†V6´6—&6ÆRÀĞ¢ÆW'EG&–ævÆRÀĞ¢f–ÆUFW‡BÀĞ¢6Æö6²ÀĞ¢F&vWBÀĞ¢7F—f—G’ÀĞ¢6†–VÆDÆW'BÀĞ¢G&÷‡’ÀĞ¢6†Wg&öäF÷vâÀĞ¢6†Wg&öåWÀĞ§Òg&öÒ&ÇV6–FR×&V7B#°Ğ Ğ¦gVæ7F–öâF—7Æ”–W†—7F÷'”FFR‡fÇVS¢Væ¶æ÷vâ“¢7G&–ær°Ğ¢G'’°Ğ¢6öç7BFFRÒG—VöbfÇVRÓÓÒ'7G&–ær Ğ¢òæWrFFR‡fÇVRĞ¢¢fÇVRbbG—VöbfÇVRÓÓÒ&ö&¦V7B"bb'FôFFR"–âfÇVRbbG—VöbfÇVRçFôFFRÓÓÒ&gVæ7F–öâ Ğ¢òfÇVRçFôFFR‚Ğ¢¢çVÆÃ°Ğ¢&WGW&âFFRbbçVÖ&W"æ—4æâ†FFRævWEF–ÖR‚’’òFFRçFôÆö6ÆU7G&–ær‚’¢&FFRVæf–Æ&ÆR#°Ğ¢Ò6F6‚°Ğ¢&WGW&â&FFRVæf–Æ&ÆR#°Ğ¢ĞĞ§ĞĞ Ğ¦W‡÷'BFVfVÇBgVæ7F–öâ”U'V–ÆFW%vR‚’°Ğ¢6öç7B²&öf–ÆRÂW6W"ÂÆöF–ærÒÒW6TWF‚‚“°Ğ¢6öç7B·7GVFVçG2Â6WE7GVFVçG5ÒÒW6U7FFSÅ7GVFVçDFö5µÓâ…µÒ“°Ğ¢6öç7B·6VÆV7FVE7GVFVçD–BÂ6WE6VÆV7FVE7GVFVçD–EÒÒW6U7FFSÇ7G&–æsâ‚""“°Ğ¢6öç7B·6VÆV7FVE7GVFVçBÂ6WE6VÆV7FVE7GVFVçEÒÒW6U7FFSÅ7GVFVçDFö2ÂçVÆÃâ†çVÆÂ“°Ğ Ğ¢òò7GVFVçB6öçFW‡B7FFPĞ¢6öç7B¶ÖVF–6Å&öf–ÆRÂ6WDÖVF–6Å&öf–ÆUÒÒW6U7FFSÄÖVF–6Å&öf–ÆRÂçVÆÃâ†çVÆÂ“°Ğ¢6öç7B¶&4–æ6–FVçG2Â6WD&4–æ6–FVçG5ÒÒW6U7FFSÄ$4–æ6–FVçEµÓâ…µÒ“°Ğ¢6öç7B¶7F—fU&Vw&W76–öäÆW'G2Â6WD7F—fU&Vw&W76–öäÆW'G5ÒÒW6U7FFSÅ&Vw&W76–öäÆW'DFö5µÓâ…µÒ“°Ğ¢6öç7B¶ÆW'D¶W’Â6WDÆW'D¶W•ÒÒW6U7FFRƒ“°Ğ¢6öç7B¶ÆöF–æu7GVFVçDFFÂ6WDÆöF–æu7GVFVçDFFÒÒW6U7FFR†fÇ6R“°Ğ Ğ¢òò”UVF—F÷"7FFPĞ¢6öç7B¶vöÇ2Â6WDvöÇ5ÒÒW6U7FFSÄ”UvöÅµÓâ…µÒ“°Ğ¢6öç7B¶6†–WfVDvöÇ2Â6WD6†–WfVDvöÇ5ÒÒW6U7FFSÄ”UvöÅµÓâ…µÒ“°Ğ¢6öç7B·VæF–æt”vöÂÂ6WEVæF–æt”vöÅÒÒW6U7FFSÄ”UvöÂÂçVÆÃâ†çVÆÂ“°Ğ¢6öç7B¶—4vVæW&F–ætæW‡DvöÂÂ6WD—4vVæW&F–ætæW‡DvöÅÒÒW6U7FFR†fÇ6R“°Ğ¢6öç7B·6†÷t6†–WfVD†—7F÷'’Â6WE6†÷t6†–WfVD†—7F÷'•ÒÒW6U7FFR†fÇ6R“°Ğ¢6öç7B¶–W7VÖÖ'’Â6WD–W7VÖÖ'•ÒÒW6U7FFSÇ7G&–æsâ‚""“°Ğ¢6öç7B¶6&UfW'6–öâÂ6WD6&UfW'6–öåÒÒW6U7FFRƒ“°Ğ¢6öç7B¶–WfW'6–öç2Â6WD–WfW'6–öç5ÒÒW6U7FFSÄ'&“Å&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâb²–C¢7G&–ærÓãâ…µÒ“°Ğ¢6öç7B¶F—66Æ–ÖW"Â6WDF—66Æ–ÖW%ÒÒW6U7FFSÇ7G&–æsâ‚""“°Ğ¢6öç7B¶—4vVæW&F–ærÂ6WD—4vVæW&F–æuÒÒW6U7FFSÆ&ööÆVãâ†fÇ6R“°Ğ¢6öç7B¶—56f–ærÂ6WD—56f–æuÒÒW6U7FFSÆ&ööÆVãâ†fÇ6R“°Ğ¢6öç7B¶–ç7Vff–6–VçDFF×6rÂ6WD–ç7Vff–6–VçDFF×6uÒÒW6U7FFSÇ7G&–æsâ‚""“°Ğ¢6öç7B·6†÷tÖçVÄFBÂ6WE6†÷tÖçVÄFEÒÒW6U7FFSÆ&ööÆVãâ†fÇ6R“°Ğ¢6öç7B¶æWtvöÂÂ6WDæWtvöÅÒÒW6U7FFSÅ'F–ÃÄ”UvöÃãâ‡°Ğ¢vöÄ&V¢$6öÖ×Væ–6F–öâb7VV6‚"ÀĞ¢F—FÆS¢""ÀĞ¢F&vWEF–ÖVg&ÖS¢#2ÖöçF‡2"ÀĞ¢ÖV7W&VÖVçDÖWF†öC¢$F–Ç’F†W&—7Bö'6W'fF–öâÆöw2"ÀĞ¢&F–öæÆS¢""ÀĞ¢Ö–ÆW7FöæW3¢µÒÀĞ¢Ò“°Ğ Ğ¢òò66W726öçG&öÃ Ğ¢òòÆÂB&öÆW26âf–WrF†R7GVFVçBw2”UÂ'WBôäÅ’F†W&—7B6âvVæW&FRÂVF—BÂFBÂFVÆWFRÂæBf–æÆ—¦RàĞ¢6öç7B—4WF†÷&—¦VBĞĞ¢&öf–ÆSòç&öÆRÓÓÒ'F†W&—7B"ÇÀĞ¢&öf–ÆSòç&öÆRÓÓÒ'FV6†W""ÇÀĞ¢&öf–ÆSòç&öÆRÓÓÒ&FÖ–â"ÇÀĞ¢&öf–ÆSòç&öÆRÓÓÒ'&VçB#°Ğ Ğ¢6öç7B—5F†W&—7BÒ&öf–ÆSòç&öÆRÓÓÒ'F†W&—7B#°Ğ¢6öç7B6äVF—BÒ—5F†W&—7C°Ğ¢6öç7B6Ö'Ev&æ–æw2ÒvöÇ2æfÆDÖ‚†vöÂÂ–æFW‚’ÓàĞ¢6Ö'D6ö×ÆWFVæW75v&æ–æw2†vöÂ’æÖ‚†ÖW76vR’Óâ‡²vöÃ¢–æFW‚²ÂÖW76vRÒ’Ğ¢“°Ğ¢6öç7BvöÄ6öæfÆ–7G2Òf–æE÷76–&ÆTvöÄ6öæfÆ–7G2†vöÇ2“°Ğ Ğ¢òòÆöB7GVFVçG0Ğ¢W6TVffV7B‚‚’Óâ°Ğ¢7–æ2gVæ7F–öâÆöE7GVFVçG2‚’°Ğ¢–b‚—4WF†÷&—¦VB’&WGW&ã°Ğ¢G'’°Ğ¢6öç7BÆ—7BÒv—B7GVFVçG4F"æÆ—7B‡66÷Töb‡&öf–ÆR’“°Ğ¢6WE7GVFVçG2†Æ—7B“°Ğ¢–b†Æ—7BæÆVæwF‚â’°Ğ¢6WE6VÆV7FVE7GVFVçD–B†Æ—7E³Òæ–B“°Ğ¢ĞĞ¢Ò6F6‚†W'"’°Ğ¢6öç6öÆRæW'&÷"‚$f–ÆVBFòÆöB7GVFVçG2"ÂW'"“°Ğ¢Fö7BæW'&÷"‚$6÷VÆBæ÷BÆöB7GVFVçG2Æ—7Bâ"“°Ğ¢ĞĞ¢ĞĞ¢ÆöE7GVFVçG2‚“°Ğ¢ÒÂ·&öf–ÆRÂ—4WF†÷&—¦VEÒ“°Ğ Ğ¢òòÆöB6öçFW‡BFFv†Vâ7GVFVçB6†ævW0Ğ¢W6TVffV7B‚‚’Óâ°Ğ¢–b‚6VÆV7FVE7GVFVçD–B’&WGW&ã°Ğ¢6öç7B7W'&VçBÒ7GVFVçG2æf–æB‚‡2’Óâ2æ–BÓÓÒ6VÆV7FVE7GVFVçD–B’ÇÂçVÆÃ°Ğ¢6WE6VÆV7FVE7GVFVçB†7W'&VçB“°Ğ¢6WD–ç7Vff–6–VçDFF×6r‚""“°Ğ¢6WDvöÇ2…µÒ“°Ğ¢6WD–W7VÖÖ'’‚""“°Ğ¢6WD–WfW'6–öç2…µÒ“°Ğ¢6WD6†–WfVDvöÇ2…µÒ“²òò6ÆV"&Wf–÷W27GVFVçBw2†—7F÷'Ğ¢6WEVæF–æt”vöÂ†çVÆÂ“²òò6ÆV"&Wf–÷W27GVFVçBw2VæF–ær’7VvvW7F–öàĞ Ğ¢7–æ2gVæ7F–öâfWF6…7GVFVçD6öçFW‡B‚’°Ğ¢6WDÆöF–æu7GVFVçDFF‡G'VR“°Ğ Ğ¢òòfWF6‚V6‚–æFWVæFVçFÇ’6òöæRf–ÇW&RFöW6âwB&Æö6²F†R÷F†W'0Ğ¢ÆWBÖVDFF¢ÖVF–6Å&öf–ÆRÂ&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâÒ·Ó°Ğ¢ÆWB6&TFF¢6&UÆâÂ&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâÒ·Ó°Ğ¢ÆWB&4FF¢$4–æ6–FVçEµÒÒµÓ°Ğ¢ÆWBfW'6–öäFF¢'&“Å&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâb²–C¢7G&–ærÓâÒµÓ°Ğ Ğ¢G'’°Ğ¢ÖVDFFÒ†v—B7GVFVçG4F"ævWDÖVF–6Â‡6VÆV7FVE7GVFVçD–B’’2ÖVF–6Å&öf–ÆS°Ğ¢Ò6F6‚†R’°Ğ¢6öç6öÆRçv&â‚&vWDÖVF–6Âf–ÆVC¢"ÂR“°Ğ¢ĞĞ¢G'’°Ğ¢6&TFFÒ†v—B7GVFVçG4F"ævWD6&UÆâ‡6VÆV7FVE7GVFVçD–B’’26&UÆã°Ğ¢Ò6F6‚†R’°Ğ¢6öç6öÆRçv&â‚&vWD6&UÆâf–ÆVC¢"ÂR“°Ğ¢ĞĞ¢ÆWBÆW'G4FF¢&Vw&W76–öäÆW'DFö5µÒÒµÓ°Ğ¢G'’°Ğ¢&4FFÒ†v—B&4F"æÆ—7D–æ6–FVçG2‡6VÆV7FVE7GVFVçD–BÂ66÷Töb‡&öf–ÆR’Â’’2$4–æ6–FVçEµÓ°Ğ¢Ò6F6‚†R’°Ğ¢6öç6öÆRçv&â‚&Æ—7D–æ6–FVçG2f–ÆVC¢"ÂR“°Ğ¢ĞĞ Ğ¢–b‡&öf–ÆSòæ6VçFW$–B’°Ğ¢G'’°Ğ¢6öç7BÆ—7BÒv—B&Vw&W76–öäF"æÆ—7Df÷%7GVFVçB‡6VÆV7FVE7GVFVçD–BÂ&öf–ÆRæ6VçFW$–B“°Ğ¢ÆW'G4FFÒÆ—7Bæf–ÇFW"‚†’Óâç&W6öÇfVB“°Ğ¢Ò6F6‚†R’°Ğ¢6öç6öÆRçv&â‚&Æ—7Df÷%7GVFVçBÆW'G2f–ÆVC¢"ÂR“°Ğ¢ĞĞ¢ĞĞ Ğ¢G'’°Ğ¢fW'6–öäFFÒv—B–WF"æÆ—7D”U&V6÷&G2‡6VÆV7FVE7GVFVçD–B’2'&“Å&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâb²–C¢7G&–ærÓã°Ğ¢Ò6F6‚†R’°Ğ¢6öç6öÆRçv&â‚$6÷VÆBæ÷BÆöBf–æÆ—¦VB”U†—7F÷'“¢"ÂR“°Ğ¢ĞĞ Ğ¢–b‚7F—fR’&WGW&ã°Ğ¢6WDÖVF–6Å&öf–ÆR†ÖVDFF2ÖVF–6Å&öf–ÆR“°Ğ¢6WD&4–æ6–FVçG2†&4FFÇÂµÒ“°Ğ¢6WD7F—fU&Vw&W76–öäÆW'G2†ÆW'G4FF“°Ğ¢6WD–WfW'6–öç2‡fW'6–öäFF“°Ğ Ğ¢òò&R×÷VÆFRv—F‚”UvöÇ2&6VBöâ&öÆS Ğ¢òòÒF†W&—7C¢öæÇ’&W7F÷&R–b&VÂ”Uv2&Wf–÷W6Ç’6fVB„7F—fR÷"G&gB’àĞ¢òò6VVFVB6&R×ÆâG&6¶–ærvöÇ2&R–çFVçF–öæÆÇ’–væ÷&VB6òF†W&—7@Ğ¢òò7F'G2v—F‚vöÇ2æB×W7B6Æ–6²$vVæW&FR”Uv—F‚’"àĞ¢òòÒÆÂ÷F†W"&öÆW2†FÖ–âÂFV6†W"Â&VçB“¢Çv—26†÷rv†FWfW"vöÇ2W†—7BàĞ¢6öç7B7W'&VçD6&RÒ6&TFF26&UÆã°Ğ¢6öç7B&t6&RÒ6&TFF2Væ¶æ÷vâ2&V6÷&CÇ7G&–ærÂVæ¶æ÷vãã°Ğ¢6öç7BG&gBÒ&t6&RæG&gD–W2&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâÂVæFVf–æVC°Ğ¢6WD6&UfW'6–öâ„çVÖ&W"‡&öf–ÆSòç&öÆRÓÓÒ'F†W&—7B"bbG&gBòG&gBæW‡V7FVEfW'6–öâóò&t6&RçfW'6–öâóò¢&t6&RçfW'6–öâóò’“°Ğ¢6öç7B†5&VÄ–WĞĞ¢7W'&VçD6&Ræ–W7FGW2ÓÓÒ$7F—fR"ÇÀĞ¢&t6&RæG&gD–WÒçVÆÂÇÀĞ¢„'&’æ—4'&’†7W'&VçD6&Ræ6†–WfVDvöÇ2’bb†7W'&VçD6&Ræ6†–WfVDvöÇ3òæÆVæwF‚óò’â“°Ğ Ğ¢6öç7B&W7F÷&VBÒ&W7F÷&T–W‡&t6&RÂ&öf–ÆSòç&öÆRÓÓÒ'F†W&—7B"“°Ğ¢–b‡&W7F÷&VBæG&gB’°Ğ¢6WDvöÇ2‡&W7F÷&VBævöÇ22”UvöÅµÒ“°Ğ¢6WD–W7VÖÖ'’‡&W7F÷&VBç7VÖÖ'’“°Ğ¢6WDF—66Æ–ÖW"‚%F†—2—2–÷W"6fVBG&gBâ—B†2æ÷B&VVâf–æÆ—¦VBâ"“°Ğ¢ÒVÇ6R–b€Ğ¢7W'&VçD6&Rb`Ğ¢'&’æ—4'&’†7W'&VçD6&RævöÇ2’b`Ğ¢7W'&VçD6&RævöÇ2æÆVæwF‚âb`Ğ¢‡&öf–ÆSòç&öÆRÓÒ'F†W&—7B"ÇÂ†5&VÄ–WĞ¢’°Ğ¢6WDvöÇ2‡&W7F÷&VBævöÇ22”UvöÅµÒ“°Ğ¢–b†7W'&VçD6&Ræ–W7VÖÖ'’’6WD–W7VÖÖ'’†7W'&VçD6&Ræ–W7VÖÖ'’“°Ğ¢–b†7W'&VçD6&Ræ–W7FGW2ÓÓÒ$7F—fR"’°Ğ¢6WDF—66Æ–ÖW"‚%F†—2—2F†R7F—fRf–æÆ—¦VB”UÆâf÷"F†—27GVFVçBâ"“°Ğ¢ĞĞ¢ĞĞ Ğ¢òòÇv—2ÆöB6†–WfVBvöÇ2†—7F÷'’æBVæF–ær’7VvvW7F–öâ‡F†W&—7Bv÷&¶fÆ÷rĞ¢–b„'&’æ—4'&’†7W'&VçD6&Ræ6†–WfVDvöÇ2’’°Ğ¢6WD6†–WfVDvöÇ2†7W'&VçD6&Ræ6†–WfVDvöÇ2“°Ğ¢ĞĞ¢–b†7W'&VçD6&RçVæF–æt”vöÂ’°Ğ¢6WEVæF–æt”vöÂ†7W'&VçD6&RçVæF–æt”vöÂ2”UvöÂ“°Ğ¢ÒVÇ6R°Ğ¢6WEVæF–æt”vöÂ†çVÆÂ“°Ğ¢ĞĞ Ğ¢6WDÆöF–æu7GVFVçDFF†fÇ6R“°Ğ¢ĞĞ Ğ¢ÆWB7F—fRÒG'VS°Ğ¢fWF6…7GVFVçD6öçFW‡B‚“°Ğ¢&WGW&â‚’Óâ²7F—fRÒfÇ6S²Ó°Ğ¢ÒÂ·6VÆV7FVE7GVFVçD–BÂ7GVFVçG2Â&öf–ÆUÒ“°Ğ Ğ¢òòG&–vvW"’vVæW&F–öàĞ¢6öç7B†æFÆTvVæW&FT”UÒ7–æ2‚’Óâ°Ğ¢–b‚6VÆV7FVE7GVFVçD–B’°Ğ¢Fö7BæW'&÷"‚%ÆV6R6VÆV7B7GVFVçBf—'7Bâ"“°Ğ¢&WGW&ã°Ğ¢ĞĞ Ğ¢6WD—4vVæW&F–ær‡G'VR“°Ğ¢6WD–ç7Vff–6–VçDFF×6r‚""“°Ğ Ğ¢G'’°Ğ¢òò6ÆÂ&6¶VæB’VæGö–ç@Ğ¢6öç7BFö¶VâÒv—BW6W#òævWD–EFö¶Vâ‚“°Ğ¢–b‚Fö¶Vâ’F‡&÷ræWrW'&÷"‚%–÷W"6W76–öâ†2W‡—&VBâÆV6R6–vâ–âv–ââ"“°Ğ Ğ¢òòfWF6‚7F—fR&Vw&W76–öâÆW'G2f÷"F†—27GVFVçB–bf–Æ&ÆPĞ¢ÆWB7GVFVçDÆW'G3¢Væ¶æ÷våµÒÒµÓ°Ğ¢–b‡&öf–ÆSòæ6VçFW$–B’°Ğ¢G'’°Ğ¢7GVFVçDÆW'G2Òv—B&Vw&W76–öäF"æÆ—7Df÷%7GVFVçB‡6VÆV7FVE7GVFVçD–BÂ&öf–ÆRæ6VçFW$–B“°Ğ¢Ò6F6‚†R’°Ğ¢6öç6öÆRçv&â‚$6÷VÆBæ÷BfWF6‚&Vw&W76–öâÆW'G2f÷"”UvVæW&F–öã¢"ÂR“°Ğ¢ĞĞ¢ĞĞ Ğ¢6öç7B7W'&VçE7GVFVçDö&¢Ò6VÆV7FVE7GVFVçBÇÂ7GVFVçG2æf–æB‚‡2’Óâ2æ–BÓÓÒ6VÆV7FVE7GVFVçD–B“°Ğ Ğ¢6öç7B&W7öç6RÒv—BfWF6‚†G·&ö6W72æVçbääU…EõT$Ä”5ô•õU$ÂÇÂ&‡GG¢òöÆö6Æ†÷7C£ƒ'Òö’Ö–ç6–v‡G2ö–WòG·6VÆV7FVE7GVFVçD–GÖÂ°Ğ¢ÖWF†öC¢%õ5B"ÀĞ¢†VFW'3¢°Ğ¢$6öçFVçBÕG—R#¢&Æ–6F–öâö§6öâ"ÀĞ¢WF†÷&—¦F–öã¢&V&W"G·Fö¶VçÖÀĞ¢ÒÀĞ¢&öG“¢¥4ôâç7G&–æv–g’‡°Ğ¢7GVFVçC¢7W'&VçE7GVFVçDö&¢ÇÂ²–C¢6VÆV7FVE7GVFVçD–BÂæÖS¢%7GVFVçB"ÒÀĞ¢ÖVF–6Ã¢ÖVF–6Å&öf–ÆRÀĞ¢–æ6–FVçG3¢&4–æ6–FVçG2ÀĞ¢&Vw&W76–öäÆW'G3¢7GVFVçDÆW'G2ÀĞ¢Ò’ÀĞ¢Ò“°Ğ Ğ Ğ¢–b‚&W7öç6Ræö²’°Ğ¢6öç7BW'$§6öâÒv—B&W7öç6Ræ§6öâ‚’æ6F6‚‚‚’Óâ‡·Ò’“°Ğ¢F‡&÷ræWrW'&÷"†W'$§6öâæFWF–ÂÇÂ6W'fW"&W7öæFVBv—F‚7FGW2G·&W7öç6Rç7FGW7Ö“°Ğ¢ĞĞ Ğ¢6öç7BFFÒv—B&W7öç6Ræ§6öâ‚“°Ğ Ğ¢–b‚FFç7Vff–6–VçDFF’°Ğ¢6WD–ç7Vff–6–VçDFF×6r†FFç7VÖÖ'’“°Ğ¢Fö7BæW'&÷"‚$–ç7Vff–6–VçB&6¶w&÷VæBFFf÷"’vVæW&F–öââ"“°Ğ¢&WGW&ã°Ğ¢ĞĞ Ğ¢6WDvöÇ2†FFævöÇ2ÇÂµÒ“°Ğ¢6WD–W7VÖÖ'’†FFç7VÖÖ'’ÇÂ""“°Ğ¢6WDF—66Æ–ÖW"€Ğ¢FFæF—66Æ–ÖW"ÇÀĞ¢$E$eB$T4ôÔÔTäDD”ôã¢×W7B&R&Wf–WvVBæB&÷fVB'’6W'F–f–VBF†W&—7B÷"VGV6F÷"â Ğ¢“°Ğ¢Fö7Bç7V66W72‚$’G&gB”UvVæW&FVB7V66W76gVÆÇ’"“°Ğ¢Ò6F6‚†W'#¢Væ¶æ÷vâ’°Ğ¢6öç7BW'&÷$×6rÒW'"–ç7Fæ6VöbW'&÷"òW'"æÖW76vR¢$f–ÆVBFòvVæW&FR’”UâVç7W&R&6¶VæB—26öæf–wW&VBâ#°Ğ¢6öç6öÆRçv&â‚$’vVæW&F–öâf–ÆVBÂfÆÆ&6²òW'&÷"æ÷F–6S¢"ÂW'"“°Ğ¢Fö7BæW'&÷"†W'&÷$×6r“°Ğ¢Òf–æÆÇ’°Ğ¢6WD—4vVæW&F–ær†fÇ6R“°Ğ¢ĞĞ¢Ó°Ğ Ğ¢òòvöÂÖæ—VÆF–öâ†VÇW'0Ğ¢6öç7B†æFÆUWFFTvöÄf–VÆBÒ€Ğ¢–æFWƒ¢çVÖ&W"ÀĞ¢f–VÆC¢¶W–öb”UvöÂÀĞ¢fÇVS¢”UvöÅ¶¶W–öb”UvöÅĞĞ¢’Óâ°Ğ¢6WDvöÇ2‚‡&Wb’Óâ°Ğ¢6öç7BWFFVBÒ²ââç&WeÓ°Ğ¢WFFVE¶–æFW…ÒÒ²ââçWFFVE¶–æFW…ÒÂ¶f–VÆEÓ¢fÇVRÓ°Ğ¢&WGW&âWFFVC°Ğ¢Ò“°Ğ¢Ó°Ğ Ğ¢6öç7B†æFÆTFVÆWFTvöÂÒ†–æFWƒ¢çVÖ&W"’Óâ°Ğ¢6WDvöÇ2‚‡&Wb’Óâ&Wbæf–ÇFW"‚…òÂ’’Óâ’ÓÒ–æFW‚’“°Ğ¢Fö7Bç7V66W72‚$vöÂ&VÖ÷fVBâ"“°Ğ¢Ó°Ğ Ğ¢6öç7B†æFÆTFDÖ–ÆW7FöæRÒ†vöÄ–æFWƒ¢çVÖ&W"’Óâ°Ğ¢6WDvöÇ2‚‡&Wb’Óâ°Ğ¢6öç7BWFFVBÒ²ââç&WeÓ°Ğ¢6öç7BvöÂÒWFFVE¶vöÄ–æFW…Ó°Ğ¢6öç7BæWtÖ–ÆW7FöæRÒ°Ğ¢–C¢ÕòG´FFRææ÷r‚—ÖÀĞ¢FW67&—F–öã¢$æWr&öw&W72Ö–ÆW7FöæR"ÀĞ¢6ö×ÆWFVC¢fÇ6RÀĞ¢F&vWDFFS¢$ÖöçF‚"ÀĞ¢Ó°Ğ¢vöÂæÖ–ÆW7FöæW2Ò²âââ†vöÂæÖ–ÆW7FöæW2ÇÂµÒ’ÂæWtÖ–ÆW7FöæUÓ°Ğ¢&WGW&âWFFVC°Ğ¢Ò“°Ğ¢Ó°Ğ Ğ¢6öç7B†æFÆUWFFTÖ–ÆW7FöæRÒ€Ğ¢vöÄ–æFWƒ¢çVÖ&W"ÀĞ¢Ö–ÆW7FöæT–æFWƒ¢çVÖ&W"ÀĞ¢f–VÆC¢&FW67&—F–öâ"Â&6ö×ÆWFVB"Â'F&vWDFFR"ÀĞ¢fÇVS¢7G&–ærÂ&ööÆVàĞ¢’Óâ°Ğ¢6WDvöÇ2‚‡&Wb’Óâ°Ğ¢6öç7BWFFVBÒ²ââç&WeÓ°Ğ¢6öç7BvöÂÒWFFVE¶vöÄ–æFW…Ó°Ğ¢–b†vöÂæÖ–ÆW7FöæW2bbvöÂæÖ–ÆW7FöæW5¶Ö–ÆW7FöæT–æFW…Ò’°Ğ¢vöÂæÖ–ÆW7FöæW5¶Ö–ÆW7FöæT–æFW…ÒÒ°Ğ¢ââævöÂæÖ–ÆW7FöæW5¶Ö–ÆW7FöæT–æFW…ÒÀĞ¢¶f–VÆEÓ¢fÇVRÀĞ¢Ó°Ğ¢ĞĞ¢&WGW&âWFFVC°Ğ¢Ò“°Ğ¢Ó°Ğ Ğ¢6öç7B†æFÆTFVÆWFTÖ–ÆW7FöæRÒ†vöÄ–æFWƒ¢çVÖ&W"ÂÖ–ÆW7FöæT–æFWƒ¢çVÖ&W"’Óâ°Ğ¢6WDvöÇ2‚‡&Wb’Óâ°Ğ¢6öç7BWFFVBÒ²ââç&WeÓ°Ğ¢6öç7BvöÂÒWFFVE¶vöÄ–æFW…Ó°Ğ¢–b†vöÂæÖ–ÆW7FöæW2’°Ğ¢vöÂæÖ–ÆW7FöæW2ÒvöÂæÖ–ÆW7FöæW2æf–ÇFW"‚…òÂÖ’’ÓâÖ’ÓÒÖ–ÆW7FöæT–æFW‚“°Ğ¢ĞĞ¢&WGW&âWFFVC°Ğ¢Ò“°Ğ¢Ó°Ğ Ğ¢6öç7B†æFÆTFDÖçVÄvöÂÒ‚’Óâ°Ğ¢–b‚æWtvöÂçF—FÆSòçG&–Ò‚’’°Ğ¢Fö7BæW'&÷"‚%ÆV6RVçFW"vöÂF—FÆRâ"“°Ğ¢&WGW&ã°Ğ¢ĞĞ Ğ¢6öç7B7&VFVC¢”UvöÂÒ°Ğ¢–C¢ÖçVÅòG´FFRææ÷r‚—ÖÀĞ¢F—FÆS¢æWtvöÂçF—FÆRÀĞ¢vöÄ&V¢æWtvöÂævöÄ&VÇÂ$vVæW&Â"ÀĞ¢7FGW3¢$–â&öw&W72"ÀĞ¢&öw&W75W&6VçC¢ÀĞ¢F&vWEF–ÖVg&ÖS¢æWtvöÂçF&vWEF–ÖVg&ÖRÇÂ#2ÖöçF‡2"ÀĞ¢ÖV7W&VÖVçDÖWF†öC¢æWtvöÂæÖV7W&VÖVçDÖWF†öBÇÂ$F—&V7Bö'6W'fF–öâ"ÀĞ¢&F–öæÆS¢æWtvöÂç&F–öæÆRÇÂ$ÖçVÂ6Æ–æ–6ÂVçG'’"ÀĞ¢Ö–ÆW7FöæW3¢°Ğ¢°Ğ¢–C¢ÕòG´FFRææ÷r‚—ÕóÀĞ¢FW67&—F–öã¢$–æ—F–Â&6VÆ–æR7FW"ÀĞ¢6ö×ÆWFVC¢fÇ6RÀĞ¢F&vWDFFS¢$ÖöçF‚"ÀĞ¢ÒÀĞ¢ÒÀĞ¢Ó°Ğ Ğ¢6WDvöÇ2‚‡&Wb’Óâ²ââç&WbÂ7&VFVEÒ“°Ğ¢6WDæWtvöÂ‡°Ğ¢vöÄ&V¢$6öÖ×Væ–6F–öâb7VV6‚"ÀĞ¢F—FÆS¢""ÀĞ¢F&vWEF–ÖVg&ÖS¢#2ÖöçF‡2"ÀĞ¢ÖV7W&VÖVçDÖWF†öC¢$F–Ç’ö'6W'fF–öâÆöw2"ÀĞ¢&F–öæÆS¢""ÀĞ¢Ò“°Ğ¢6WE6†÷tÖçVÄFB†fÇ6R“°Ğ¢Fö7Bç7V66W72‚$æWrvöÂFFVBâ"“°Ğ¢Ó°Ğ Ğ¢òòÖ&²vöÂ26†–WfVB(i"Ö÷fW2—BFò†—7F÷'’ÂWFò×&W6öÇfW2ÖF6†–ær&Vw&W76–öâÆW'G2ÂG&–vvW'2æW‡BvöÀĞ¢6öç7B†æFÆTÖ&´6†–WfVBÒ7–æ2†vöÄ–C¢7G&–ær’Óâ°Ğ¢–b‚6VÆV7FVE7GVFVçD–B’&WGW&ã°Ğ¢6öç7B6†–Wf–ætvöÂÒvöÇ2æf–æB‚†r’Óâræ–BÓÓÒvöÄ–B“°Ğ¢G'’°Ğ¢6öç7B6fVBÒv—B–WF"æÖ&´vöÄ6†–WfVB‡6VÆV7FVE7GVFVçD–BÂvöÄ–B“°Ğ¢6WD6&UfW'6–öâ‡6fVBçfW'6–öâ“°Ğ¢6WD6†–WfVDvöÇ2‡6fVBæ6†–WfVDvöÇ22Væ¶æ÷vâ2”UvöÅµÒ“°Ğ¢6WDvöÇ2‡6fVBævöÇ22Væ¶æ÷vâ2”UvöÅµÒ“°Ğ Ğ¢òò)H)HWFò×&W6öÇfRÖF6†–ær7F—fR&Vw&W76–öâÆW'Bf÷"F†—27GVFVçB…F†W&—7BfÆ÷r’)H)H Ğ¢–b‡&öf–ÆSòç&öÆRÓÓÒ'F†W&—7B"bb&öf–ÆSòæ6VçFW$–B’°Ğ¢G'’°Ğ¢6öç7B7GVFVçDÆW'G2Òv—B&Vw&W76–öäF"æÆ—7Df÷%7GVFVçB‡6VÆV7FVE7GVFVçD–BÂ&öf–ÆRæ6VçFW$–B“°Ğ¢6öç7B7F—fTÆW'G2Ò7GVFVçDÆW'G2æf–ÇFW"‚†’Óâç&W6öÇfVB“°Ğ¢ Ğ¢òò&W6öÇfRÖF6†–ærÆW'BÂ÷"–bÆÂvöÇ2&R6ö×ÆWFVB÷"—Bw2&VÖVF–ÂvöÂÂ&W6öÇfR7F—fRÆW'@Ğ¢6öç7BÆW'G5Fõ&W6öÇfRÒ7F—fTÆW'G2æf–ÇFW"‚†’Óâ°Ğ¢–b‚6†–Wf–ætvöÂ’&WGW&âG'VS°Ğ¢6öç7BF—FÆRÒ†ævöÅF—FÆRÇÂ""’çFôÆ÷vW$66R‚“°Ğ¢6öç7BuF—FÆRÒ†6†–Wf–ætvöÂçF—FÆRÇÂ""’çFôÆ÷vW$66R‚“°Ğ¢6öç7Bu&F–öæÆRÒ†6†–Wf–ætvöÂç&F–öæÆRÇÂ""’çFôÆ÷vW$66R‚“°Ğ¢&WGW&â€Ğ¢†F—FÆRbb†uF—FÆRæ–æ6ÇVFW2†F—FÆR’ÇÂF—FÆRæ–æ6ÇVFW2†uF—FÆR’’’ÇÀĞ¢†ævöÄ–BbbævöÄ–BÓÓÒ6†–Wf–ætvöÂæ–B’ÇÀĞ¢u&F–öæÆRæ–æ6ÇVFW2‚'&Vw&W76–öâ"’ÇÀĞ¢u&F–öæÆRæ–æ6ÇVFW2‚'&V6÷fW""’ÇÀĞ¢u&F–öæÆRæ–æ6ÇVFW2‚'&VÖVF–B"’ÇÀĞ¢u&F–öæÆRæ–æ6ÇVFW2†F—FÆRĞ¢“°Ğ¢Ò“°Ğ Ğ¢6öç7Bf–æÅF&vWG2ÒÆW'G5Fõ&W6öÇfRæÆVæwF‚âòÆW'G5Fõ&W6öÇfR¢†7F—fTÆW'G2æÆVæwF‚âò¶7F—fTÆW'G5³ÕÒ¢µÒ“°Ğ Ğ¢f÷"†6öç7BF&vWDÆW'Böbf–æÅF&vWG2’°Ğ¢v—B&Vw&W76–öäF"ç&W6öÇfR€Ğ¢F&vWDÆW'Bæ–BÀĞ¢°Ğ¢&W6öÇfVD'“¢W6W#òçV–BÀĞ¢&W6öÇfVD'”æÖS¢&öf–ÆSòææÖRÇÂ%F†W&—7B"ÀĞ¢&VÖVF–ÄvöÄ–C¢6†–Wf–ætvöÃòæ–BÇÂvöÄ–BÀĞ¢&VÖVF–ÄvöÅF—FÆS¢6†–Wf–ætvöÃòçF—FÆRÇÂ%&VÖVF–Â4Ô%BvöÂ"ÀĞ¢&W6öÇWF–öäæ÷FS¢6¶–ÆÂ7V66W76gVÆÇ’&V6÷fW&VBæBfW&–f–VBâ&VÖVF–ÂvöÂ"G¶6†–Wf–ætvöÃòçF—FÆRÇÂrwÒ"&V6†VBRÖ7FW'’æÀĞ¢ÒÀĞ¢W6W#òævWD–EFö¶Vâæ&–æB‡W6W"Ğ¢“°Ğ¢ĞĞ Ğ¢–b†f–æÅF&vWG2æÆVæwF‚â’°Ğ¢6öç7B&W6öÇfVD–G2ÒæWr6WB†f–æÅF&vWG2æÖ‚†’Óâæ–B’“°Ğ¢6WD7F—fU&Vw&W76–öäÆW'G2‚‡&Wb’Óâ&Wbæf–ÇFW"‚†’Óâ&W6öÇfVD–G2æ†2†æ–B’’“°Ğ¢6WDÆW'D¶W’‚†²’Óâ²²“°Ğ¢Fö7Bç7V66W72†&Vw&W76–öâÆW'B&W6öÇfVBbÖ÷fVBFò&V6÷fW'’†—7F÷'’	ùºûˆö“°Ğ¢ĞĞ¢Ò6F6‚†ÆW'DW'"’°Ğ¢6öç6öÆRçv&â‚$6÷VÆBæ÷BWFò×&W6öÇfR&Vw&W76–öâÆW'C¢"ÂÆW'DW'"“°Ğ¢ĞĞ¢ĞĞ Ğ¢Fö7Bç7V66W72‚$vöÂÖ&¶VB26†–WfVB–÷R6âæ÷rvVæW&FRF†RæW‡B&öw&W76—fRvöÂâ"“°Ğ¢Ò6F6‚†W'"’°Ğ¢6öç6öÆRæW'&÷"†W'"“°Ğ¢Fö7BæW'&÷"†W'"–ç7Fæ6VöbW'&÷"òW'"æÖW76vR¢$f–ÆVBFòÖ&²vöÂ26†–WfVBâ"“°Ğ¢ĞĞ¢Ó°Ğ Ğ¢òòvVæW&FRæW‡B&öw&W76—fR4Ô%BvöÂ&6VBöâF†RÖ÷7B&V6VçFÇ’6†–WfVBvöÀĞ¢6öç7B†æFÆTvVæW&FTæW‡DvöÂÒ7–æ2‚’Óâ°Ğ¢–b‚6VÆV7FVE7GVFVçD–BÇÂ6†–WfVDvöÇ2æÆVæwF‚ÓÓÒ’&WGW&ã°Ğ¢6WD—4vVæW&F–ætæW‡DvöÂ‡G'VR“°Ğ¢G'’°Ğ¢6öç7BÆ7D6†–WfVBÒ6†–WfVDvöÇ5¶6†–WfVDvöÇ2æÆVæwF‚ÒÓ°Ğ¢6öç7BFö¶VâÒv—BW6W#òævWD–EFö¶Vâ‚“°Ğ¢–b‚Fö¶Vâ’F‡&÷ræWrW'&÷"‚%–÷W"6W76–öâ†2W‡—&VBâÆV6R6–vâ–âv–ââ"“°Ğ¢6öç7B&W7öç6RÒv—BfWF6‚€Ğ¢G·&ö6W72æVçbääU…EõT$Ä”5ô•õU$ÂÇÂ&‡GG¢òöÆö6Æ†÷7C£ƒ'Òö’Ö–ç6–v‡G2ö–WòG·6VÆV7FVE7GVFVçD–GÒöæW‡BÖvöÆÀĞ¢°Ğ¢ÖWF†öC¢%õ5B"ÀĞ¢†VFW'3¢°Ğ¢$6öçFVçBÕG—R#¢&Æ–6F–öâö§6öâ"ÀĞ¢WF†÷&—¦F–öã¢&V&W"G·Fö¶VçÖÀĞ¢ÒÀĞ¢&öG“¢¥4ôâç7G&–æv–g’‡²6†–WfVEövöÃ¢Æ7D6†–WfVBÒ’ÀĞ¢ĞĞ¢“°Ğ¢–b‚&W7öç6Ræö²’°Ğ¢6öç7BW'$§6öâÒv—B&W7öç6Ræ§6öâ‚’æ6F6‚‚‚’Óâ‡·Ò’“°Ğ¢F‡&÷ræWrW'&÷"†W'$§6öâæFWF–ÂÇÂ6W'fW"W'&÷"G·&W7öç6Rç7FGW7Ö“°Ğ¢ĞĞ¢6öç7BFFÒv—B&W7öç6Ræ§6öâ‚“°Ğ¢6öç7B7VvvW7FVC¢”UvöÂÒ²ââæFFævöÂÂ7FGW3¢$–â&öw&W72"Â&öw&W75W&6VçC¢Ó°Ğ¢òò6fR2VæF–ær–âf—&W7F÷&R6ò—BW'6—7G27&÷726W76–öç0Ğ¢v—B–WF"ç6fUVæF–æt”vöÂ‡6VÆV7FVE7GVFVçD–BÂ7VvvW7FVB2Væ¶æ÷vâ2&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâ“°Ğ¢6WEVæF–æt”vöÂ‡7VvvW7FVB“°Ğ¢Fö7Bç7V66W72‚$’æW‡BvöÂvVæW&FVB&Wf–WræB66WBFòFB—BFòF†R7F—fRÆââ"“°Ğ¢Ò6F6‚†W'#¢Væ¶æ÷vâ’°Ğ¢6öç7B×6rÒW'"–ç7Fæ6VöbW'&÷"òW'"æÖW76vR¢$f–ÆVBFòvVæW&FRæW‡BvöÂâ#°Ğ¢Fö7BæW'&÷"†×6r“°Ğ¢Òf–æÆÇ’°Ğ¢6WD—4vVæW&F–ætæW‡DvöÂ†fÇ6R“°Ğ¢ĞĞ¢Ó°Ğ Ğ¢òò66WBF†RVæF–ær’vöÂ(i"Ö÷fR—B–çFò7F—fRvöÇ5µĞĞ¢6öç7B†æFÆT66WEVæF–ætvöÂÒ7–æ2‚’Óâ°Ğ¢–b‚6VÆV7FVE7GVFVçD–BÇÂVæF–æt”vöÂ’&WGW&ã°Ğ¢G'’°Ğ¢6öç7B6fVBÒv—B–WF"æ66WEVæF–æt”vöÂ‡6VÆV7FVE7GVFVçD–BÂVæF–æt”vöÂ2Væ¶æ÷vâ2&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâ“°Ğ¢6WD6&UfW'6–öâ‡6fVBçfW'6–öâ“°Ğ¢6WDvöÇ2‡6fVBævöÇ22Væ¶æ÷vâ2”UvöÅµÒ“°Ğ¢6WD6†–WfVDvöÇ2‡6fVBæ6†–WfVDvöÇ22Væ¶æ÷vâ2”UvöÅµÒ“°Ğ¢6WEVæF–æt”vöÂ†çVÆÂ“°Ğ¢Fö7Bç7V66W72‚$vöÂFFVBFò7F—fR”UÆâ"“°Ğ¢Ò6F6‚†W'"’°Ğ¢6öç6öÆRæW'&÷"†W'"“°Ğ¢Fö7BæW'&÷"‚$f–ÆVBFò66WBvöÂâ"“°Ğ¢ĞĞ¢Ó°Ğ Ğ¢òòF—6Ö—72F†RVæF–ær’7VvvW7F–öàĞ¢6öç7B†æFÆTF—6Ö—75VæF–ætvöÂÒ7–æ2‚’Óâ°Ğ¢–b‚6VÆV7FVE7GVFVçD–B’&WGW&ã°Ğ¢G'’°Ğ¢v—B–WF"æF—6Ö—75VæF–æt”vöÂ‡6VÆV7FVE7GVFVçD–B“°Ğ¢6WEVæF–æt”vöÂ†çVÆÂ“°Ğ¢Fö7B‚$’7VvvW7F–öâF—6Ö—76VBâ"“°Ğ¢Ò6F6‚†W'"’°Ğ¢6öç6öÆRæW'&÷"†W'"“°Ğ¢ĞĞ¢Ó°Ğ Ğ¢òò6fR2G&g@Ğ¢6öç7B†æFÆU6fTG&gBÒ7–æ2‚’Óâ°Ğ¢–b‚6VÆV7FVE7GVFVçD–B’&WGW&ã°Ğ¢6WD—56f–ær‡G'VR“°Ğ¢G'’°Ğ¢v—B–WF"ç6fTG&gB€Ğ¢6VÆV7FVE7GVFVçD–BÀĞ¢°Ğ¢vöÇ2ÀĞ¢7VÖÖ'“¢–W7VÖÖ'’ÀĞ¢W‡V7FVEfW'6–öã¢6&UfW'6–öâÀĞ¢6VçFW$–C¢&öf–ÆSòæ6VçFW$–BÇÂ&FVÖòÖ6VçFW"Ó"ÀĞ¢vVæW&FVD'”“¢&ööÆVâ†–W7VÖÖ'’’ÀĞ¢ÒÀĞ¢W6W#òçV–BÀĞ¢&öf–ÆSòææÖPĞ¢“°Ğ¢Fö7Bç7V66W72‚$G&gB”U6fVBFòf—&W7F÷&Râ"“°Ğ¢Ò6F6‚†W'"’°Ğ¢6öç6öÆRæW'&÷"†W'"“°Ğ¢Fö7BæW'&÷"‚$f–ÆVBFò6fRG&gBâ"“°Ğ¢Òf–æÆÇ’°Ğ¢6WD—56f–ær†fÇ6R“°Ğ¢ĞĞ¢Ó°Ğ Ğ¢òòf–æÆ—¦R”U Ğ¢6öç7B†æFÆTf–æÆ—¦T”UÒ7–æ2‚’Óâ°Ğ¢–b‚6VÆV7FVE7GVFVçD–B’&WGW&ã°Ğ¢–b†vöÇ2æÆVæwF‚ÓÓÒ’°Ğ¢Fö7BæW'&÷"‚$6ææ÷Bf–æÆ—¦Râ”Uv—F‚¦W&òvöÇ2â"“°Ğ¢&WGW&ã°Ğ¢ĞĞ Ğ¢–b‡6Ö'Ev&æ–æw2æÆVæwF‚â’°Ğ¢6öç7B&Wf–WrÒ6Ö'Ev&æ–æw2æÖ‚‡v&æ–ær’ÓâvöÂG·v&æ–ærævöÇÓ¢G·v&æ–æræÖW76vWÖ’æ¦ö–â‚%Æâ"“°Ğ¢6öç7B66WFVBÒv–æF÷ræ6öæf—&Ò€Ğ¢4Ô%B6ö×ÆWFVæW72&VÖ–æFW'3¥ÆåÆâG·&Wf–WwÕÆåÆåF†—26†V6²6ææ÷B76W726Æ–æ–6Â6†–Wf&–Æ—G’÷"&÷&–FVæW72â&Wf–WrF†RÆâ&öfW76–öæÆÇ’âf–æÆ—¦Rç—v“ö Ğ¢“°Ğ¢–b‚66WFVB’&WGW&ã°Ğ¢ĞĞ Ğ¢6WD—56f–ær‡G'VR“°Ğ¢G'’°Ğ¢v—B–WF"æf–æÆ—¦R€Ğ¢6VÆV7FVE7GVFVçD–BÀĞ¢°Ğ¢vöÇ2ÀĞ¢7VÖÖ'“¢–W7VÖÖ'’ÀĞ¢W‡V7FVEfW'6–öã¢6&UfW'6–öâÀĞ¢6VçFW$–C¢&öf–ÆSòæ6VçFW$–BÇÂ&FVÖòÖ6VçFW"Ó"ÀĞ¢vVæW&FVD'”“¢&ööÆVâ†–W7VÖÖ'’’ÀĞ¢ÒÀĞ¢W6W#òçV–BÀĞ¢&öf–ÆSòææÖPĞ¢“°Ğ¢6WD–WfW'6–öç2†v—B–WF"æÆ—7D”U&V6÷&G2‡6VÆV7FVE7GVFVçD–B’2'&“Å&V6÷&CÇ7G&–ærÂVæ¶æ÷vãâb²–C¢7G&–ærÓâ“°Ğ¢Fö7Bç7V66W72‚$”Uf–æÆ—¦VBb7–æ6‡&öæ—¦VBv—F‚7GVFVçBw27F—fR6&RÆâ	øêò"“°Ğ¢6WD6&UfW'6–öâ‡fW'6–öâÓâfW'6–öâ²“°Ğ¢Ò6F6‚†W'"’°Ğ¢6öç6öÆRæW'&÷"†W'"“°Ğ¢Fö7BæW'&÷"†W'"–ç7Fæ6VöbW'&÷"òW'"æÖW76vR¢$f–ÆVBFòf–æÆ—¦R”Uâ"“°Ğ¢Òf–æÆÇ’°Ğ¢6WD—56f–ær†fÇ6R“°Ğ¢ĞĞ¢Ó°Ğ Ğ¢–b†ÆöF–ær’°Ğ¢&WGW&â€Ğ¢ÆF—b7G–ÆS×·²FF–æs¢#c‚#‚"ÂFW‡DÆ–vã¢&6VçFW""×ÓàĞ¢ÆF—b6Æ74æÖSÒ'7–ææW""7G–ÆS×·²Ö&v–ã¢#WFòg‚"×ÒóàĞ¢Ç7G–ÆS×·²6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"ÂföçE6—¦S¢#ã—&VÒ"×ÓäÆöF–ær”U'V–ÆFW"&öf–ÆRââãÂ÷àĞ¢ÂöF—càĞ¢“°Ğ¢ĞĞ Ğ¢–b‚—4WF†÷&—¦VB’°Ğ¢&WGW&â€Ğ¢ÆF—b7G–ÆS×·²FF–æs¢#3‚"ÂFW‡DÆ–vã¢&6VçFW""×ÓàĞ¢Å6†–VÆDÆW'B6—¦S×³C‡Ò7G–ÆS×·²6öÆ÷#¢'f"‚ÒÖFævW"’"ÂÖ&v–ã¢#WFòg‚"×ÒóàĞ¢Æƒ"7G–ÆS×·²föçEvV–v‡C¢ƒÂ6öÆ÷#¢'f"‚Ò×&–Ö'’ÖF&²’"×Óä66W72&W7G&–7FVCÂöƒ#àĞ¢Ç7G–ÆS×·²6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"×ÓàĞ¢öæÇ’F†W&—7G2ÂFV6†W'2ÂæBFÖ–æ—7G&F÷'2†fRW&Ö—76–öâFò66W72F†R’Ô76—7FVB”U'V–ÆFW"àĞ¢Â÷àĞ¢ÂöF—càĞ¢“°Ğ¢ĞĞ Ğ¢&WGW&â€Ğ¢ÆF—b6Æ74æÖSÒ&æ–ÖFRÖfFRÖ–â"7G–ÆS×·²FF–æs¢#‡‚G‚C‚"ÂF—7Æ“¢&fÆW‚"ÂfÆW„F—&V7F–öã¢&6öÇVÖâ"Âv¢##G‚"×ÓàĞ¢²ò¢F÷&ææW"†VFW"¢÷ĞĞ¢ÆF—`Ğ¢6Æ74æÖSÒ&vÆ72Ö6&B Ğ¢7G–ÆS×·°Ğ¢FF–æs¢##G‚"ÀĞ¢&6¶w&÷VæC¢&Æ–æV"Öw&F–VçBƒ3VFVrÂ&v&ƒ#3Â#C2Â#C2Âã“R’Â&v&ƒ#C2Â#3rÂ#CrÂã“R’’"ÀĞ¢&÷&FW#¢#‚6öÆ–B&v&ƒ#2Â“bÂ“bÂã2’"ÀĞ¢F—7Æ“¢&fÆW‚"ÀĞ¢§W7F–g”6öçFVçC¢'76RÖ&WGvVVâ"ÀĞ¢Æ–vä—FV×3¢&6VçFW""ÀĞ¢fÆW…w&¢'w&"ÀĞ¢v¢#g‚"ÀĞ¢×ĞĞ¢àĞ¢ÆF—càĞ¢ÆF—b7G–ÆS×·²F—7Æ“¢&fÆW‚"ÂÆ–vä—FV×3¢&6VçFW""Âv¢#‚"ÂÖ&v–ä&÷GFöÓ¢#G‚"×ÓàĞ¢ÆF—`Ğ¢7G–ÆS×·°Ğ¢v–GFƒ¢#C‚"ÀĞ¢†V–v‡C¢#C‚"ÀĞ¢&÷&FW%&F—W3¢#‚"ÀĞ¢&6¶w&÷VæC¢'f"‚Ò×&–Ö'’’"ÀĞ¢6öÆ÷#¢'v†—FR"ÀĞ¢F—7Æ“¢&fÆW‚"ÀĞ¢Æ–vä—FV×3¢&6VçFW""ÀĞ¢§W7F–g”6öçFVçC¢&6VçFW""ÀĞ¢×ĞĞ¢àĞ¢Ä'&–ä6—&7V—B6—¦S×³#GÒóàĞ¢ÂöF—càĞ¢Æƒ7G–ÆS×·²Ö&v–ã¢ÂföçE6—¦S¢#ãG&VÒ"ÂföçEvV–v‡C¢ƒÂ6öÆ÷#¢'f"‚Ò×&–Ö'’ÖF&²’"×ÓàĞ¢’Ô76—7FVB”U'V–ÆFW Ğ¢ÂöƒàĞ¢ÂöF—càĞ¢Ç7G–ÆS×·²Ö&v–ã¢ÂföçE6—¦S¢#ãƒ‡&VÒ"Â6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"×ÓàĞ¢7–çF†W6—¦R7GVFVçB6Æ–æ–6Â&öf–ÆW2Â$2&V†f–÷&ÂFFÂæBÖ–ÆW7FöæW2–çFò7F–öæ&ÆR4Ô%B”UvöÇ2àĞ¢Â÷àĞ¢ÂöF—càĞ Ğ¢²ò¢7GVFVçBG&÷F÷vâ6VÆV7F÷"¢÷ĞĞ¢ÆF—b7G–ÆS×·²F—7Æ“¢&fÆW‚"ÂÆ–vä—FV×3¢&6VçFW""Âv¢#'‚"×ÓàĞ¢ÆÆ&VÂ7G–ÆS×·²föçE6—¦S¢#ãƒW&VÒ"ÂföçEvV–v‡C¢sÂ6öÆ÷#¢'f"‚Ò×&–Ö'’ÖF&²’"×ÓàĞ¢6VÆV7B7GVFVçC Ğ¢ÂöÆ&VÃàĞ¢Ç6VÆV7@Ğ¢6Æ74æÖSÒ&vÆ72Ö–çWB Ğ¢fÇVS×·6VÆV7FVE7GVFVçD–GĞĞ¢öä6†ævS×²†R’Óâ6WE6VÆV7FVE7GVFVçD–B†RçF&vWBçfÇVR—ĞĞ¢7G–ÆS×·°Ğ¢FF–æs¢#‚g‚"ÀĞ¢föçEvV–v‡C¢cÀĞ¢Ö–åv–GFƒ¢###‚"ÀĞ¢&6¶w&÷VæC¢'v†—FR"ÀĞ¢&÷&FW$6öÆ÷#¢'f"‚ÒÖ66VçB×FVÂ’"ÀĞ¢×ĞĞ¢àĞ¢·7GVFVçG2æÖ‚‡2’Óâ€Ğ¢Æ÷F–öâ¶W“×·2æ–GÒfÇVS×·2æ–GÓàĞ¢·2ææÖWÒ‡·2æF–væ÷6—2ÇÂ%7V6–Â6&R'ÒĞ¢Âö÷F–öãàĞ¢’—ĞĞ¢Â÷6VÆV7CàĞ¢ÂöF—càĞ¢ÂöF—càĞ Ğ¢²ò¢&Vw&W76–öâÆW'B&ææW"f÷"6VÆV7FVB7GVFVçB†–bç’ÆW'BW†—7G2’¢÷ĞĞ¢·6VÆV7FVE7GVFVçD–Bbb&öf–ÆSòæ6VçFW$–Bbb€Ğ¢Å&Vw&W76–öäÆW'G4&ææW Ğ¢¶W“×¶G·6VÆV7FVE7GVFVçD–GÒÒG¶ÆW'D¶W—ÖĞĞ¢6VçFW$–C×·&öf–ÆRæ6VçFW$–GĞĞ¢7GVFVçD–C×·6VÆV7FVE7GVFVçD–GĞĞ¢óàĞ¢—ĞĞ Ğ¢²ò¢Ö–âw&–C¢7GVFVçB6öçFW‡B7VÖÖ'’g2â”UVF—F÷"¢÷ĞĞ¢ÆF—b7G–ÆS×·²F—7Æ“¢&w&–B"Âw&–EFV×ÆFT6öÇVÖç3¢#g"&g""Âv¢##G‚"×ÓàĞ¢²ò¢ÆVgB6öÇVÖã¢7GVFVçB6Æ–æ–6Âb&V†f–÷&Â6öçFW‡B¢÷ĞĞ¢ÆF—b7G–ÆS×·²F—7Æ“¢&fÆW‚"ÂfÆW„F—&V7F–öã¢&6öÇVÖâ"Âv¢#g‚"×ÓàĞ¢ÆF—b6Æ74æÖSÒ&vÆ72Ö6&B"7G–ÆS×·²FF–æs¢##‚"×ÓàĞ¢Æƒ0Ğ¢7G–ÆS×·°Ğ¢Ö&v–ã¢#g‚"ÀĞ¢föçE6—¦S¢#ãW&VÒ"ÀĞ¢föçEvV–v‡C¢sÀĞ¢6öÆ÷#¢'f"‚Ò×&–Ö'’ÖF&²’"ÀĞ¢F—7Æ“¢&fÆW‚"ÀĞ¢Æ–vä—FV×3¢&6VçFW""ÀĞ¢v¢#‡‚"ÀĞ¢×ĞĞ¢àĞ¢Äf–ÆUFW‡B6—¦S×³‡Ò7G–ÆS×·²6öÆ÷#¢'f"‚ÒÖ66VçB×FVÂ’"×Òóâ7GVFVçB&6¶w&÷Væ@Ğ¢Âöƒ3àĞ Ğ¢¶ÆöF–æu7GVFVçDFFò€Ğ¢Ç7G–ÆS×·²föçE6—¦S¢#ãƒW&VÒ"Â6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"×ÓäÆöF–ær7GVFVçB&öf–ÆRââãÂ÷àĞ¢’¢6VÆV7FVE7GVFVçBò€Ğ¢ÆF—b7G–ÆS×·²F—7Æ“¢&fÆW‚"ÂfÆW„F—&V7F–öã¢&6öÇVÖâ"Âv¢#'‚"ÂföçE6—¦S¢#ãƒW&VÒ"×ÓàĞ¢ÆF—càĞ¢Ç7â7G–ÆS×·²föçEvV–v‡C¢cÂ6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"×ÓäF–væ÷6—3¢Â÷7ãàĞ¢Ç7â7G–ÆS×·²föçEvV–v‡C¢sÂ6öÆ÷#¢'f"‚Ò×&–Ö'’ÖF&²’"×ÓàĞ¢·6VÆV7FVE7GVFVçBæF–væ÷6—2ÇÂ$æ÷B7V6–f–VB'ĞĞ¢Â÷7ãàĞ¢ÂöF—càĞ¢ÆF—càĞ¢Ç7â7G–ÆS×·²föçEvV–v‡C¢cÂ6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"×ÓäFFRöb&—'Fƒ¢Â÷7ãàĞ¢Ç7ãç·6VÆV7FVE7GVFVçBæFö"ÇÂ$âô'ÓÂ÷7ãàĞ¢ÂöF—càĞ¢ÆF—càĞ¢Ç7â7G–ÆS×·²föçEvV–v‡C¢cÂ6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"×Óä”U7FGW3¢Â÷7ãàĞ¢Ç7â6Æ74æÖSÒ&6†—6†—Ö–æfò"7G–ÆS×·²Ö&v–äÆVgC¢#g‚"×ÓàĞ¢·6VÆV7FVE7GVFVçBæ–W7FGW2ÇÂ%VæFW"&Wf–Wr'ĞĞ¢Â÷7ãàĞ¢ÂöF—càĞ¢ÆF—b7G–ÆS×·²&÷&FW%F÷¢#‚6öÆ–B&v&ƒÃÃÃãb’"ÂFF–æuF÷¢#‚"×ÓàĞ¢Ç7â7G–ÆS×·²föçEvV–v‡C¢cÂ6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"×Óå‡—6–6Âõ6Vç6÷'’æVVG3¢Â÷7ãàĞ¢Ç7G–ÆS×·²Ö&v–ã¢#G‚"Â6öÆ÷#¢'f"‚Ò×FW‡B×&–Ö'’’"×ÓàĞ¢¶ÖVF–6Å&öf–ÆSòç7V6–Å‡—6–6ÄæVVG2ÇÂ$æöæR&V6÷&FVB'ĞĞ¢Â÷àĞ¢ÂöF—càĞ¢ÆF—càĞ¢Ç7â7G–ÆS×·²föçEvV–v‡C¢cÂ6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"×ÓäÆÆW&v–W3¢Â÷7ãàĞ¢Ç7ãç¶ÖVF–6Å&öf–ÆSòæÆÆW&v–W3òæÆVæwF‚òÖVF–6Å&öf–ÆRæÆÆW&v–W2æ¦ö–â‚"Â"’¢$æöæR&W÷'FVB'ÓÂ÷7ãàĞ¢ÂöF—càĞ¢ÆF—càĞ¢Ç7â7G–ÆS×·²föçEvV–v‡C¢cÂ6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"×Óå6V—§W&R&÷Fö6öÃ¢Â÷7ãàĞ¢Ç7ãç¶ÖVF–6Å&öf–ÆSòç6V—§W&T†—7F÷'“òæ†4†—7F÷'’ò.)ªûˆò7F—fR6V—§W&R&÷Fö6öÂ"¢$æò†—7F÷'’'ÓÂ÷7ãàĞ¢ÂöF—càĞ¢ÂöF—càĞ¢’¢€Ğ¢Ç7G–ÆS×·²6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"×Óäæò7GVFVçB6VÆV7FVBãÂ÷àĞ¢—ĞĞ¢ÂöF—càĞ Ğ¢²ò¢&V†f–÷&Â6–væÇ26&B¢÷ĞĞ¢ÆF—b6Æ74æÖSÒ&vÆ72Ö6&B"7G–ÆS×·²FF–æs¢##‚"×ÓàĞ¢Æƒ0Ğ¢7G–ÆS×·°Ğ¢Ö&v–ã¢#G‚"ÀĞ¢föçE6—¦S¢#ãW&VÒ"ÀĞ¢föçEvV–v‡C¢sÀĞ¢6öÆ÷#¢'f"‚Ò×&–Ö'’ÖF&²’"ÀĞ¢F—7Æ“¢&fÆW‚"ÀĞ¢Æ–vä—FV×3¢&6VçFW""ÀĞ¢v¢#‡‚"ÀĞ¢×ĞĞ¢àĞ¢Ä7F—f—G’6—¦S×³‡Ò7G–ÆS×·²6öÆ÷#¢'f"‚ÒÖ66VçB×W'ÆR’"×Òóâ&V†f–÷&Â6–væÇ2„$2G&6¶W"Ğ¢Âöƒ3àĞ¢¶&4–æ6–FVçG2æÆVæwF‚ÓÓÒò€Ğ¢Ç7G–ÆS×·²föçE6—¦S¢#ãƒ'&VÒ"Â6öÆ÷#¢'f"‚Ò×FW‡B×6V6öæF'’’"ÂÖ&v–ã¢×ÓàĞ¢æò&V6VçB$2&V†f–÷&Â–æ6–FVçG2ÆövvVBf÷"F†—27GVFVçBàĞ¢Â÷àĞ¢’¢€Ğ¢ÆF—b7G–ÆS×·²F—7Æ“¢&fÆW‚"ÂfÆW„F—&V7F–öã¢&6öÇVÖâ"Âv¢#‚"×ÓàĞ¢¶&4–æ6–FVçG2ç6Æ–6RƒÂ2’æÖ‚†–æ2}÷Kh‘éì¶»§q«^t
+_CBˆÙ]ƒBˆÙ]ƒBƒBˆËÊˆ[œİY™šXÚY[]HØ\›š[™È[\
+‹ßCBˆÚ[œİY™šXÚY[]S\ÙÈ	‰ˆ
+Bˆ]ƒBˆÛ\ÜÓ˜[YOH™Û\ÜËXØ\™[š[X]K\ÛYKYİÛˆƒBˆİ[O^ŞÃBˆY[™ÎˆŒMœ‹Bˆ˜XÚÙÜ›İ[™ˆœ™Ø˜JMËNNKJH‹Bˆ›Ü™\ˆŒ\ÛÛYÙNYLˆ‹BˆÛÛÜˆˆÎLH‹Bˆ\Ü^Nˆ™›^‹BˆØ\ˆŒLœ‹Bˆ[YÛ’][\Îˆ™›^\İ\‹Bˆ_CBˆƒBˆ[\šX[™ÛHÚ^™O^ÌŒHİ[O^ŞÈ›^Úš[šÎˆX\™Ú[•ÜˆŒœˆ_HÏƒBˆ]ˆİ[O^ŞÈ›ÛÚ^™NˆŒ™[Hˆ_OƒBˆİ›Û™Ï’[œİY™šXÚY[]H›İXÙNÜİ›Û™ÏˆÚ[œİY™šXÚY[]S\ÙßCBˆ]ˆİ[O^ŞÈX\™Ú[•Üˆœˆ_OƒBˆ[İHØ[ˆİ[X[X[HÛÛœİXİHQT™[İÈ\Ú[™ÈHİ›Û™ÏYX[X[ÛØ[Üİ›Û™Ïˆ]Û‹ƒBˆÙ]ƒBˆÙ]ƒBˆÙ]ƒBˆ
+_CBƒBˆËÊˆRHÛ[šXØ[\ØÛZ[Y\ˆ›Ş
+‹ßCBˆÙ\ØÛZ[Y\ˆ	‰ˆ
+Bˆ]ƒBˆİ[O^ŞÃBˆY[™ÎˆŒLœMœ‹Bˆ˜XÚÙÜ›İ[™ˆœ™Ø˜JŒÎ‹MK
+H‹Bˆ›Ü™\ˆŒ\ÛÛYÎNÙ‹Bˆ›Ü™\”˜Y]\ÎˆŒL‹Bˆ›ÛÚ^™NˆŒÎ™[H‹BˆÛÛÜˆˆÌÍÌÌLÈ‹Bˆ[™RZYÚˆKKBˆ_CBˆƒBˆİ›Û™ÏÛ[šXØ[Yš\ÛÜNÜİ›Û™ÏˆÙ\ØÛZ[Y\ŸCBˆÙ]ƒBˆ
+_CBƒBˆËÊˆX[X[YÛØ[›Ü›H
+‹ßCBˆÜÚİÓX[X[Y	‰ˆ
+Bˆ]ƒBˆÛ\ÜÓ˜[YOH™Û\ÜËXØ\™[š[X]K\ÛYKYİÛˆƒBˆİ[O^ŞÃBˆY[™ÎˆŒŒ‹Bˆ›Ü™\ˆŒœÛÛY˜\ŠKXXØÙ[]X[
+H‹Bˆ˜XÚÙÜ›İ[™ˆÚ]H‹Bˆ_CBˆƒBˆİ[O^ŞÈX\™Ú[ˆŒM‹›ÛÙZYÚˆÌÛÛÜˆ˜\ŠK\š[X\KY\šÊHˆ_OƒBˆYİ\İÛHQTÛØ[BˆÚƒBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹›^\™Xİ[Ûˆ˜ÛÛ[[ˆ‹Ø\ˆŒLœˆ_OƒBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™ÜšY‹ÜšY[\]PÛÛ[[œÎˆŒYœˆYœˆ‹Ø\ˆŒLœˆ_OƒBˆ]ƒBˆX™[İ[O^ŞÈ›ÛÚ^™NˆŒ™[H‹›ÛÙZYÚˆŒÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JHˆ_OƒBˆÛØ[\™XCBˆÛX™[ƒBˆÙ[XİBˆÛ\ÜÓ˜[YOH™Û\ÜËZ[œ]ƒBˆ˜[YO^Û™]ÑÛØ[™ÛØ[\™X_CBˆÛÚ[™ÙO^ÊJHOˆÙ]™]ÑÛØ[
+È‹‹›™]ÑÛØ[ÛØ[\™XNˆK\™Ù]˜[YHJ_CBˆİ[O^ŞÈÚYˆŒL	H‹X\™Ú[•Üˆˆ_CBˆƒBˆÜ[ÛÛÛ[][šXØ][Ûˆ	ˆÜYXÚÛÜ[ÛƒBˆÜ[Û‘š[™H	ˆÜ›ÜÜÈ[İÜˆÚÚ[ÏÛÜ[ÛƒBˆÜ[Û‘[[İ[Û˜[™Yİ[][Ûˆ	ˆ™Z]š[ÜÛÜ[ÛƒBˆÜ[Û”ÛØÚX[[\˜Xİ[Ûˆ	ˆ^OÛÜ[ÛƒBˆÜ[ÛÛÙÛš]]™H	ˆXØY[ZXÏÛÜ[ÛƒBˆÜ[Û‘Z[H]š[™È	ˆ[™\[™[˜ÙOÛÜ[ÛƒBˆÜÙ[XİƒBˆÙ]ƒBˆ]ƒBˆX™[İ[O^ŞÈ›ÛÚ^™NˆŒ™[H‹›ÛÙZYÚˆŒÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JHˆ_OƒBˆ\™Ù][YYœ˜[YCBˆÛX™[ƒBˆ[œ]BˆÛ\ÜÓ˜[YOH™Û\ÜËZ[œ]ƒBˆ˜[YO^Û™]ÑÛØ[\™Ù][YYœ˜[Y_CBˆÛÚ[™ÙO^ÊJHOˆÙ]™]ÑÛØ[
+È‹‹›™]ÑÛØ[\™Ù][YYœ˜[YNˆK\™Ù]˜[YHJ_CBˆXÙZÛ\H™K™ËˆÈ[ÛËˆ[ÛÈƒBˆİ[O^ŞÈÚYˆŒL	H‹X\™Ú[•Üˆˆ_CBˆÏƒBˆÙ]ƒBˆÙ]ƒBƒBˆ]ƒBˆX™[İ[O^ŞÈ›ÛÚ^™NˆŒ™[H‹›ÛÙZYÚˆŒÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JHˆ_OƒBˆÓPT•ÛØ[İ][Y[BˆÛX™[ƒBˆ^\™XCBˆÛ\ÜÓ˜[YOH™Û\ÜËZ[œ]ƒBˆ›İÜÏ^ÌŸCBˆ˜[YO^Û™]ÑÛØ[]_CBˆÛÚ[™ÙO^ÊJHOˆÙ]™]ÑÛØ[
+È‹‹›™]ÑÛØ[]NˆK\™Ù]˜[YHJ_CBˆXÙZÛ\H‘K™Ë‹İY[Ú[\ÙHXİ\™HØ\™ÈÈ™\]Y\İ][\È[ˆİ]ÙˆHÜÜ[š]Y\Ë‹‹ˆƒBˆİ[O^ŞÈÚYˆŒL	H‹X\™Ú[•Üˆˆ_CBˆÏƒBˆÙ]ƒBƒBˆ]ƒBˆX™[İ[O^ŞÈ›ÛÚ^™NˆŒ™[H‹›ÛÙZYÚˆŒÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JHˆ_OƒBˆYX\İ\™[Y[Y]ÙBˆÛX™[ƒBˆ[œ]BˆÛ\ÜÓ˜[YOH™Û\ÜËZ[œ]ƒBˆ˜[YO^Û™]ÑÛØ[›YX\İ\™[Y[Y]ÙCBˆÛÚ[™ÙO^ÊJHOˆÙ]™]ÑÛØ[
+È‹‹›™]ÑÛØ[YX\İ\™[Y[Y]ÙˆK\™Ù]˜[YHJ_CBˆXÙZÛ\H™K™Ë‹ÙYZÛHÚXÚÛ\İHÛ\ÜÜ›ÛÛHXXÚ\ˆƒBˆİ[O^ŞÈÚYˆŒL	H‹X\™Ú[•Üˆˆ_CBˆÏƒBˆÙ]ƒBƒBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹Ø\ˆŒL‹\İYPÛÛ[ˆ™›^Y[™‹X\™Ú[•Üˆˆ_OƒBˆ]ÛˆÛ\ÜÓ˜[YOH˜‹YÚÜİˆÛÛXÚÏ^Ê
+HOˆÙ]ÚİÓX[X[Y
+˜[ÙJ_OƒBˆØ[˜Ù[BˆØ]ÛƒBˆ]ÛˆÛ\ÜÓ˜[YOH˜‹\š[X\HˆÛÛXÚÏ^Ú[™PYX[X[ÛØ[OƒBˆYÈ[ƒBˆØ]ÛƒBˆÙ]ƒBˆÙ]ƒBˆÙ]ƒBˆ
+_CBƒBˆËÊˆÛØ[È\İ
+‹ßCBˆÙÛØ[ÛÛ™›XİË›[™İˆ	‰ˆ
+Bˆ]ˆ›ÛOHœİ]\ÈˆÛ\ÜÓ˜[YOH™Û\ÜËXØ\™ˆİ[O^ŞÈY[™ÎˆŒMN‹›Ü™\“YˆÛÛYÙYL™H‹ÛÛÜˆ˜\ŠK]^\š[X\JHˆ_OƒBˆİ›Û™Èİ[O^ŞÈ\Ü^Nˆ˜›ØÚÈ‹X\™Ú[›İÛNˆˆ_O”ÜÜÚX›HÛØ[ÛÛ™›XİÈ8 %\˜\\İ™]šY]È™YYYÜİ›Û™ÏƒBˆÙÛØ[ÛÛ™›XİË›X\
+
+ÛÛ™›Xİ
+HOˆ
+BˆÙ^O^Ø	ØÛÛ™›Xİ™š\œİKIØÛÛ™›XİœÙXÛÛ™XHİ[O^ŞÈX\™Ú[ˆ‹›ÛÚ^™NˆŒ™[Hˆ_OƒBˆÛØ[ÈØÛÛ™›Xİ™š\œİH[™ØÛÛ™›XİœÙXÛÛ™HX^HÚ]™HÜÜÚ[™È\™Xİ[ÛœÈ›ÜˆØÛÛ™›XİœÚ\™YÚÚ[KˆÛÛ™š\›HÚ]HØ\™HX[NÈ\È]]ÛX]Y™[Z[™\ˆ\È›İHÛ[šXØ[XÚ\Ú[Û‹ƒBˆÜƒBˆ
+J_CBˆÙ]ƒBˆ
+_CBˆÙÛØ[Ë›[™İOOH	‰ˆ\ÚİÓX[X[YÈ
+Bˆ]ˆÛ\ÜÓ˜[YOH™Û\ÜËXØ\™ˆİ[O^ŞÈY[™ÎˆŒŒ‹^[YÛˆ˜Ù[\ˆˆ_OƒBˆ\™Ù]Ú^™O^ÍHİ[O^ŞÈÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JH‹X\™Ú[ˆŒ]]ÈMœˆ_HÏƒBˆİ[O^ŞÈ›ÛÙZYÚˆÌÛÛÜˆ˜\ŠK\š[X\KY\šÊH‹X\™Ú[ˆŒˆ_OƒBˆ›ÈQTÛØ[ÈÛÛ™šYİ\™YY]BˆÚƒBˆİ[O^ŞÈÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JH‹›ÛÚ^™NˆŒ™[H‹X^ÚYˆL‹X\™Ú[ˆŒ]]ÈŒˆ_OƒBˆÛXÚÈİ›Û™Ï‘Ù[™\˜]HQTÚ]ROÜİ›Û™ÏˆÈ[˜[^™HHİY[	˜\ÜÎÜÈÛ[šXØ[ÛÛ^ÜˆÛXÚÈİ›Û™ÏYX[X[ÛØ[Üİ›Û™ÏˆÈ˜Yİ\İÛHZ[\İÛ™\ËƒBˆÜƒBˆÙ]ƒBˆ
+Hˆ
+Bˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹›^\™Xİ[Ûˆ˜ÛÛ[[ˆ‹Ø\ˆŒNˆ_OƒBˆÙÛØ[Ë›X\
+
+ÛØ[ÒY
+HOˆ
+Bˆ]ƒBˆÙ^O^ÙÛØ[šYÒYCBˆÛ\ÜÓ˜[YOH™Û\ÜËXØ\™ƒBˆİ[O^ŞÃBˆY[™ÎˆŒŒ‹Bˆ›Ü™\“YˆÛÛY˜\ŠKXXØÙ[\\œJH‹Bˆ˜XÚÙÜ›İ[™ˆÚ]H‹Bˆ_CBˆƒBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹\İYPÛÛ[ˆœÜXÙKX™]ÙY[ˆ‹[YÛ’][\Îˆ™›^\İ\‹Ø\ˆŒLœ‹X\™Ú[›İÛNˆŒLœˆ_OƒBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹Ø\ˆ‹›^Ü˜\ˆÜ˜\‹[YÛ’][\Îˆ˜Ù[\ˆˆ_OƒBˆÜ[ˆÛ\ÜÓ˜[YOH˜Ú\Ú\Z[™›Èˆİ[O^ŞÈ›ÛÙZYÚˆÌ_OƒBˆÙÛØ[™ÛØ[\™XH‘Ù[™\˜[\™XHŸCBˆÜÜ[ƒBˆÜ[ˆİ[O^ŞÈ›ÛÚ^™NˆŒ™[H‹ÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JH‹\Ü^Nˆ™›^‹[YÛ’][\Îˆ˜Ù[\ˆ‹Ø\ˆˆ_OƒBˆÛØÚÈÚ^™O^ÌMHÏˆÙÛØ[\™Ù][YYœ˜[YHŒÈ[ÛÈŸCBˆÜÜ[ƒBˆÙ]ƒBƒBˆØØ[‘Y]	‰ˆ
+Bˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹Ø\ˆœ‹[YÛ’][\Îˆ˜Ù[\ˆˆ_OƒBˆ]ÛƒBˆÛÛXÚÏ^Ê
+HOˆ[™SX\šĞXÚY]™Y
+ÛØ[šY
+_CBˆİ[O^ŞÃBˆ˜XÚÙÜ›İ[™ˆ››Û™H‹Bˆ›Ü™\ˆŒ\ÛÛY˜\ŠK\İXØÙ\ÜÊH‹Bˆ›Ü™\”˜Y]\Îˆœ‹BˆÛÛÜˆ˜\ŠK\İXØÙ\ÜÊH‹Bˆİ\œÛÜˆœÚ[\ˆ‹BˆY[™ÎˆL‹Bˆ›ÛÚ^™NˆŒÍ\™[H‹Bˆ›ÛÙZYÚˆÌBˆ\Ü^Nˆ™›^‹Bˆ[YÛ’][\Îˆ˜Ù[\ˆ‹BˆØ\ˆ‹Bˆ_CBˆ]OH“X\šÈ\ÈÛØ[\ÈXÚY]™YƒBˆƒBˆ›ÜHÚ^™O^ÌLßHÏˆX\šÈXÚY]™YBˆØ]ÛƒBˆ]ÛƒBˆÛÛXÚÏ^Ê
+HOˆ[™Q[]QÛØ[
+ÒY
+_CBˆİ[O^ŞÃBˆ˜XÚÙÜ›İ[™ˆ››Û™H‹Bˆ›Ü™\ˆ››Û™H‹BˆÛÛÜˆ˜\ŠKY[™Ù\ŠH‹Bˆİ\œÛÜˆœÚ[\ˆ‹BˆY[™Îˆ‹Bˆ_CBˆ]OH”™[[İ™HÛØ[ƒBˆƒBˆ˜\ÚˆÚ^™O^ÌMŸHÏƒBˆØ]ÛƒBˆÙ]ƒBˆ
+_CBˆÙ]ƒBƒBˆËÊˆÛØ[İ][Y[^
+Y]X›H›Üˆ\˜\\İ™XY[Û›H›Üˆİ\œÊH
+‹ßCBˆ]ˆİ[O^ŞÈX\™Ú[›İÛNˆŒMˆ_OƒBˆX™[İ[O^ŞÈ›ÛÚ^™NˆŒÎ™[H‹›ÛÙZYÚˆÌÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JH‹^˜[œÙ›Ü›Nˆ\\˜Ø\ÙHˆ_OƒBˆÓPT•ÛØ[İ][Y[BˆÛX™[ƒBˆ^\™XCBˆÛ\ÜÓ˜[YOH™Û\ÜËZ[œ]ƒBˆ›İÜÏ^ÌŸCBˆ˜[YO^ÙÛØ[]_CBˆ™XYÛ›O^ÈXØ[‘Y]CBˆÛÚ[™ÙO^ÊJHOˆØ[‘Y]	‰ˆ[™U\]QÛØ[šY[
+ÒY]H‹K\™Ù]˜[YJ_CBˆİ[O^ŞÃBˆÚYˆŒL	H‹BˆX\™Ú[•Üˆ‹Bˆ›ÛÙZYÚˆŒBˆÛÛÜˆ˜\ŠK\š[X\KY\šÊH‹Bˆ›ÛÚ^™NˆŒM\™[H‹Bˆ˜XÚÙÜ›İ[™ÛÛÜˆØ[‘Y]ÈÚ]Hˆˆœ™Ø˜JLL‹ŠH‹Bˆİ\œÛÜˆØ[‘Y]È^ˆˆ™Y˜][‹Bˆ_CBˆÏƒBˆÙ]ƒBƒBˆËÊˆYX\İ\™[Y[	ˆ˜][Û˜[H
+‹ßCBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™ÜšY‹ÜšY[\]PÛÛ[[œÎˆŒYœˆYœˆ‹Ø\ˆŒLœ‹X\™Ú[›İÛNˆŒMœˆ_OƒBˆ]ƒBˆX™[İ[O^ŞÈ›ÛÚ^™NˆŒÎ™[H‹›ÛÙZYÚˆÌÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JHˆ_OƒBˆYX\İ\™[Y[Y]ÙBˆÛX™[ƒBˆ^\™XCBˆÛ\ÜÓ˜[YOH™Û\ÜËZ[œ]ƒBˆ›İÜÏ^ÌŸCBˆ˜[YO^ÙÛØ[›YX\İ\™[Y[Y]ÙˆŸCBˆ™XYÛ›O^ÈXØ[‘Y]CBˆÛÚ[™ÙO^ÊJHOˆØ[‘Y]	‰ˆ[™U\]QÛØ[šY[
+ÒY›YX\İ\™[Y[Y]Ù‹K\™Ù]˜[YJ_CBˆXÙZÛ\H“ØœÙ\˜][ÛˆÈÚXÚÛ\İƒBˆİ[O^ŞÃBˆÚYˆŒL	H‹BˆX\™Ú[•Üˆ‹Bˆ›ÛÚ^™NˆŒ\™[H‹Bˆ˜XÚÙÜ›İ[™ÛÛÜˆØ[‘Y]ÈÚ]Hˆˆœ™Ø˜JLL‹ŠH‹Bˆİ\œÛÜˆØ[‘Y]È^ˆˆ™Y˜][‹Bˆ_CBˆÏƒBˆÙ]ƒBˆ]ƒBˆX™[İ[O^ŞÈ›ÛÚ^™NˆŒÎ™[H‹›ÛÙZYÚˆÌÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JHˆ_OƒBˆÛ[šXØ[˜][Û˜[CBˆÛX™[ƒBˆ^\™XCBˆÛ\ÜÓ˜[YOH™Û\ÜËZ[œ]ƒBˆ›İÜÏ^ÌŸCBˆ˜[YO^ÙÛØ[œ˜][Û˜[HˆŸCBˆ™XYÛ›O^ÈXØ[‘Y]CBˆÛÚ[™ÙO^ÊJHOˆØ[‘Y]	‰ˆ[™U\]QÛØ[šY[
+ÒYœ˜][Û˜[H‹K\™Ù]˜[YJ_CBˆXÙZÛ\H•YYÈ™Z]š[ÜˆÈ™YYÈƒBˆİ[O^ŞÃBˆÚYˆŒL	H‹BˆX\™Ú[•Üˆ‹Bˆ›ÛÚ^™NˆŒ\™[H‹Bˆ˜XÚÙÜ›İ[™ÛÛÜˆØ[‘Y]ÈÚ]Hˆˆœ™Ø˜JLL‹ŠH‹Bˆİ\œÛÜˆØ[‘Y]È^ˆˆ™Y˜][‹Bˆ_CBˆÏƒBˆÙ]ƒBˆÙ]ƒBƒBˆËÊˆ›ÙÜ™\ÜÚ]™HZ[\İÛ™\È
+‹ßCBˆ]ˆİ[O^ŞÈ˜XÚÙÜ›İ[™ˆœ™Ø˜JLL‹
+H‹Y[™ÎˆŒM‹›Ü™\”˜Y]\ÎˆŒLˆ_OƒBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹\İYPÛÛ[ˆœÜXÙKX™]ÙY[ˆ‹[YÛ’][\Îˆ˜Ù[\ˆ‹X\™Ú[›İÛNˆŒLˆ_OƒBˆÜ[ˆİ[O^ŞÈ›ÛÚ^™NˆŒ\™[H‹›ÛÙZYÚˆÌÛÛÜˆ˜\ŠK\š[X\KY\šÊHˆ_OƒBˆ›ÙÜ™\ÜÚ]™HZ[\İÛ™\ÃBˆÜÜ[ƒBˆØØ[‘Y]	‰ˆ
+Bˆ]ÛƒBˆÛÛXÚÏ^Ê
+HOˆ[™PYZ[\İÛ™JÒY
+_CBˆİ[O^ŞÃBˆ˜XÚÙÜ›İ[™ˆ››Û™H‹Bˆ›Ü™\ˆ››Û™H‹BˆÛÛÜˆ˜\ŠKXXØÙ[]X[
+H‹Bˆ›ÛÚ^™NˆŒ™[H‹Bˆ›ÛÙZYÚˆÌBˆİ\œÛÜˆœÚ[\ˆ‹Bˆ\Ü^Nˆ™›^‹Bˆ[YÛ’][\Îˆ˜Ù[\ˆ‹BˆØ\ˆ‹Bˆ_CBˆƒBˆ\ÈÚ^™O^ÌMHÏˆYZ[\İÛ™CBˆØ]ÛƒBˆ
+_CBˆÙ]ƒBƒBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹›^\™Xİ[Ûˆ˜ÛÛ[[ˆ‹Ø\ˆˆ_OƒBˆÊÛØ[›Z[\İÛ™\È×JK›X\
+
+KRY
+HOˆ
+Bˆ]ƒBˆÙ^O^ÛKšYRYCBˆİ[O^ŞÃBˆ\Ü^Nˆ™›^‹Bˆ[YÛ’][\Îˆ˜Ù[\ˆ‹BˆØ\ˆ‹Bˆ˜XÚÙÜ›İ[™ˆÚ]H‹BˆY[™ÎˆœL‹Bˆ›Ü™\”˜Y]\Îˆœ‹Bˆ›Ü™\ˆŒ\ÛÛY™Ø˜JŒŠH‹Bˆ_CBˆƒBˆ[œ]Bˆ\OH˜ÚXÚØ›ŞƒBˆÚXÚÙY^ÛK˜ÛÛ\]YCBˆ\ØX›Y^ÈXØ[‘Y]CBˆÛÚ[™ÙO^ÊJHOƒBˆØ[‘Y]	‰ˆ[™U\]SZ[\İÛ™JÒYRY˜ÛÛ\]Y‹K\™Ù]˜ÚXÚÙY
+CBˆCBˆİ[O^ŞÈİ\œÛÜˆØ[‘Y]ÈœÚ[\ˆˆˆ™Y˜][ˆ_CBˆÏƒBˆ[œ]BˆÛ\ÜÓ˜[YOH™Û\ÜËZ[œ]ƒBˆ˜[YO^ÛK™\ØÜš\[ÛŸCBˆ™XYÛ›O^ÈXØ[‘Y]CBˆÛÚ[™ÙO^ÊJHOƒBˆØ[‘Y]	‰ˆ[™U\]SZ[\İÛ™JÒYRY™\ØÜš\[Ûˆ‹K\™Ù]˜[YJCBˆCBˆXÙZÛ\H“Z[\İÛ™H\ØÜš\[ÛˆƒBˆİ[O^ŞÈ›^ˆK›Ü™\ˆ››Û™H‹˜XÚÙÜ›İ[™ˆ˜[œÜ\™[‹Y[™Îˆ‹›ÛÚ^™NˆŒ\™[Hˆ_CBˆÏƒBˆ[œ]BˆÛ\ÜÓ˜[YOH™Û\ÜËZ[œ]ƒBˆ˜[YO^ÛK\™Ù]]HˆŸCBˆ™XYÛ›O^ÈXØ[‘Y]CBˆÛÚ[™ÙO^ÊJHOƒBˆØ[‘Y]	‰ˆ[™U\]SZ[\İÛ™JÒYRY\™Ù]]H‹K\™Ù]˜[YJCBˆCBˆXÙZÛ\H•\™Ù]
+K™Ëˆ[ÛJHƒBˆİ[O^ŞÈÚYˆŒLŒ‹›Ü™\ˆ››Û™H‹˜XÚÙÜ›İ[™ˆœ™Ø˜JŒ
+H‹Y[™Îˆ‹›ÛÚ^™NˆŒ™[Hˆ_CBˆÏƒBˆØØ[‘Y]	‰ˆ
+Bˆ]ÛƒBˆÛÛXÚÏ^Ê
+HOˆ[™Q[]SZ[\İÛ™JÒYRY
+_CBˆİ[O^ŞÈ˜XÚÙÜ›İ[™ˆ››Û™H‹›Ü™\ˆ››Û™H‹ÛÛÜˆˆÎXØLØYˆ‹İ\œÛÜˆœÚ[\ˆˆ_CBˆƒBˆ0åÃBˆØ]ÛƒBˆ
+_CBˆÙ]ƒBˆ
+J_CBˆÙ]ƒBˆÙ]ƒBˆÙ]ƒBˆ
+J_CBˆÙ]ƒBˆ
+_CBƒBˆËÊˆ8¥ 8¥ Ù[™\˜]H™^ÛØ[˜[›™\ˆ
+\˜\\İÛ›KÚ[ˆ]X\İÛ™HÛØ[XÚY]™Y
+H8¥ 8¥ 
+‹ßCBˆØØ[‘Y]	‰ˆXÚY]™YÛØ[Ë›[™İˆ	‰ˆ\[™[™ĞZQÛØ[	‰ˆ
+Bˆ]ƒBˆÛ\ÜÓ˜[YOH™Û\ÜËXØ\™ƒBˆİ[O^ŞÃBˆY[™ÎˆŒŒ‹Bˆ˜XÚÙÜ›İ[™ˆ›[™X\‹YÜ˜YY[
+LÍYYË™Ø˜JM‹NKLKŒ
+K™Ø˜JNKLÌ‹ŒŠJH‹Bˆ›Ü™\ˆŒ\ÛÛY™Ø˜JM‹NKLKŒJH‹Bˆ\Ü^Nˆ™›^‹Bˆ[YÛ’][\Îˆ˜Ù[\ˆ‹Bˆ\İYPÛÛ[ˆœÜXÙKX™]ÙY[ˆ‹BˆØ\ˆŒMœ‹Bˆ›^Ü˜\ˆÜ˜\‹Bˆ_CBˆƒBˆ]ƒBˆ]ˆİ[O^ŞÈ›ÛÙZYÚˆÛÛÜˆ˜\ŠK\š[X\KY\šÊH‹›ÛÚ^™NˆŒM\™[H‹\Ü^Nˆ™›^‹[YÛ’][\Îˆ˜Ù[\ˆ‹Ø\ˆˆ_OƒBˆ›ÜHÚ^™O^ÌNHİ[O^ŞÈÛÛÜˆˆÌLNHˆ_HÏƒBˆÛØ[XÚY]™YH™XYH›Üˆ™^İ\BˆÙ]ƒBˆ]ˆİ[O^ŞÈ›ÛÚ^™NˆŒœ™[H‹ÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JH‹X\™Ú[•Üˆˆ_OƒBˆH\İXÚY]™YÛØ[ˆİ›Û™Ï‰œ][İŞØXÚY]™YÛØ[ÖØXÚY]™YÛØ[Ë›[™İHWOË]_Iœ][İÏÜİ›Û™ÏƒBˆœˆÏ‘Ù[™\˜]HH™^›ÙÜ™\ÜÚ]™HÓPT•ÛØ[˜\ÙYÛˆ\ÈXÚY]™[Y[[™İ\œ™[İY[]KƒBˆÙ]ƒBˆÙ]ƒBˆ]ÛƒBˆÛ\ÜÓ˜[YOH˜‹\š[X\HƒBˆÛÛXÚÏ^Ú[™QÙ[™\˜]S™^ÛØ[CBˆ\ØX›Y^Ú\ÑÙ[™\˜][™Ó™^ÛØ[CBˆİ[O^ŞÃBˆ˜XÚÙÜ›İ[™ˆ›[™X\‹YÜ˜YY[
+LÍYYËÌLNKÌØ™ŠH‹Bˆ\Ü^Nˆ™›^‹Bˆ[YÛ’][\Îˆ˜Ù[\ˆ‹BˆØ\ˆ‹BˆY[™ÎˆŒLŒ‹Bˆ›ÛÙZYÚˆÌBˆÚ]TÜXÙNˆ››İÜ˜\‹Bˆ_CBˆƒBˆÜ\šÛ\ÈÚ^™O^ÌMŸHÏƒBˆÚ\ÑÙ[™\˜][™Ó™^ÛØ[È‘Ù[™\˜][™Ë‹‹ˆˆˆ‘Ù[™\˜]H™^ÛØ[Ú]RHŸCBˆØ]ÛƒBˆÙ]ƒBˆ
+_CBƒBˆËÊˆ8¥ 8¥ [™[™ÈRHÛØ[8 %]ØZ][™È\˜\\İ™]šY]È8¥ 8¥ 
+‹ßCBˆØØ[‘Y]	‰ˆ[™[™ĞZQÛØ[	‰ˆ
+Bˆ]ƒBˆÛ\ÜÓ˜[YOH™Û\ÜËXØ\™ƒBˆİ[O^ŞÃBˆY[™ÎˆŒŒ‹Bˆ›Ü™\ˆŒœ\ÚYÙNYLˆ‹Bˆ˜XÚÙÜ›İ[™ˆœ™Ø˜JMËNNKJH‹Bˆ_CBˆƒBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹[YÛ’][\Îˆ˜Ù[\ˆ‹\İYPÛÛ[ˆœÜXÙKX™]ÙY[ˆ‹X\™Ú[›İÛNˆŒM‹›^Ü˜\ˆÜ˜\‹Ø\ˆŒLˆ_OƒBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹[YÛ’][\Îˆ˜Ù[\ˆ‹Ø\ˆ‹›ÛÙZYÚˆÛÛÜˆˆÎLH‹›ÛÚ^™NˆŒM\™[Hˆ_OƒBˆÜ\šÛ\ÈÚ^™O^ÌNHİ[O^ŞÈÛÛÜˆˆÙNYLˆˆ_HÏƒBˆRKTİYÙÙ\İY™^ÛØ[8 %[™[™È[İ\ˆ™]šY]ÃBˆÙ]ƒBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹Ø\ˆˆ_OƒBˆ]ÛƒBˆÛ\ÜÓ˜[YOH˜‹YÚÜİƒBˆÛÛXÚÏ^Ú[™Q\ÛZ\ÜÔ[™[™ÑÛØ[CBˆİ[O^ŞÈ›ÛÚ^™NˆŒ™[H‹Y[™ÎˆœM‹ÛÛÜˆˆÎXØLØYˆˆ_CBˆƒBˆ\ÛZ\ÜÃBˆØ]ÛƒBˆ]ÛƒBˆÛ\ÜÓ˜[YOH˜‹\š[X\HƒBˆÛÛXÚÏ^Ú[™PXØÙ\[™[™ÑÛØ[CBˆİ[O^ŞÈ›ÛÚ^™NˆŒ\™[H‹Y[™ÎˆN‹›ÛÙZYÚˆÌ˜XÚÙÜ›İ[™ˆˆÌLNH‹\Ü^Nˆ™›^‹[YÛ’][\Îˆ˜Ù[\ˆ‹Ø\ˆœˆ_CBˆƒBˆÚXÚĞÚ\˜ÛHÚ^™O^ÌM_HÏˆXØÙ\	ˆYÈ[ƒBˆØ]ÛƒBˆÙ]ƒBˆÙ]ƒBƒBˆ]ˆİ[O^ŞÈ˜XÚÙÜ›İ[™ˆÚ]H‹›Ü™\”˜Y]\Îˆ‹Y[™ÎˆŒMœ‹›Ü™\ˆŒ\ÛÛY™Ø˜JKMNLKŒŠHˆ_OƒBˆ]ˆİ[O^ŞÈ\Ü^Nˆ™›^‹Ø\ˆ‹X\™Ú[›İÛNˆŒL‹›^Ü˜\ˆÜ˜\ˆ_OƒBˆÜ[ˆÛ\ÜÓ˜[YOH˜Ú\Ú\Z[™›Èˆİ[O^ŞÈ›ÛÙZYÚˆÌ_OÜ[™[™ĞZQÛØ[™ÛØ[\™XH‘Ù[™\˜[ŸOÜÜ[ƒBˆÜ[ˆİ[O^ŞÈ›ÛÚ^™NˆŒ™[H‹ÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JH‹\Ü^Nˆ™›^‹[YÛ’][\Îˆ˜Ù[\ˆ‹Ø\ˆˆ_OƒBˆÛØÚÈÚ^™O^ÌLßHÏˆÜ[™[™ĞZQÛØ[\™Ù][YYœ˜[YHŒÈ[ÛÈŸCBˆÜÜ[ƒBˆÙ]ƒBˆ]ˆİ[O^ŞÈ›ÛÙZYÚˆÌÛÛÜˆ˜\ŠK\š[X\KY\šÊH‹›ÛÚ^™NˆŒM\™[H‹X\™Ú[›İÛNˆŒLˆ_OƒBˆÜ[™[™ĞZQÛØ[]_CBˆÙ]ƒBˆÜ[™[™ĞZQÛØ[›YX\İ\™[Y[Y]Ù	‰ˆ
+Bˆ]ˆİ[O^ŞÈX\™Ú[›İÛNˆˆ_OƒBˆÜ[ˆİ[O^ŞÈ›ÛÚ^™NˆŒÍ\™[H‹›ÛÙZYÚˆÌÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JH‹^˜[œÙ›Ü›Nˆ\\˜Ø\ÙHˆ_O“YX\İ\™[Y[Y]ÙÜÜ[ƒBˆ™Hİ[O^ŞÈX\™Ú[ˆ‹›Û˜[Z[Nˆš[š\š]‹›ÛÚ^™NˆŒœ™[H‹ÛÛÜˆ˜\ŠK]^\š[X\JH‹Ú]TÜXÙNˆœ™K]Ü˜\ˆ_OƒBˆÜ[™[™ĞZQÛØ[›YX\İ\™[Y[Y]ÙCBˆÜ™OƒBˆÙ]ƒBˆ
+_CBˆÜ[™[™ĞZQÛØ[›Z[\İÛ™\È	‰ˆ[™[™ĞZQÛØ[›Z[\İÛ™\Ë›[™İˆ	‰ˆ
+Bˆ]ƒBˆÜ[ˆİ[O^ŞÈ›ÛÚ^™NˆŒÍ\™[H‹›ÛÙZYÚˆÌÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JH‹^˜[œÙ›Ü›Nˆ\\˜Ø\ÙHˆ_O“Z[\İÛ™\ÏÜÜ[ƒBˆ[İ[O^ŞÈX\™Ú[ˆ‹Y[™ÓYˆŒMœ‹›ÛÚ^™NˆŒœ™[Hˆ_OƒBˆÜ[™[™ĞZQÛØ[›Z[\İÛ™\Ë›X\
+
+JHOˆ
+BˆHÙ^O^ÛKšYOÛK™\ØÜš\[ÛŸH8 %[OÛK\™Ù]]_OÙ[OÛOƒBˆ
+J_CBˆİ[ƒBˆÙ]ƒBˆ
+_CBˆÙ]ƒBˆÙ]ƒBˆ
+_CBƒBˆËÊˆXİ[Ûˆ›Ûİ\ˆ›ÜˆØ]š[™ÈÈš[˜[^š[™È
+‹ßCBˆÙÛØ[Ë›[™İˆ	‰ˆØ[‘Y]	‰ˆ
+Bˆ]ˆÛ\ÜÓ˜[YOH™Û\ÜËXØ\™ˆİ[O^ŞÈY[™ÎˆŒMN‹›Ü™\“YˆÛÛY	ÜÛX\Ø\›š[™ÜË›[™İÈ˜\ŠK]Ø\›š[™ÊHˆˆ˜\ŠK\İXØÙ\ÜÊHŸX_OƒBˆİ›Û™Èİ[O^ŞÈÛÛÜˆ˜\ŠK\š[X\KY\šÊHˆ_O”ÓPT•ÛÛ\][™\ÜÈ™]šY]ÏÜİ›Û™ÏƒBˆİ[O^ŞÈX\™Ú[ˆœ‹›ÛÚ^™NˆŒœ™[H‹ÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JHˆ_OƒBˆ\ÙH˜Y[™È›Û\ÈÚXÚÈ›ÜˆØœÙ\˜X›HÛÜ™[™ËYX\İ\™[Y[]Z[™[]˜[˜ÙH[™H[YYœ˜[YKˆ^HÈ›İ˜]HÛ[šXØ[]X[]NÈ\˜\\İ™]šY]È™[XZ[œÈ™\]Z\™YƒBˆÜƒBˆÜÛX\Ø\›š[™ÜË›[™İˆÈ
+Bˆ[İ[O^ŞÈX\™Ú[ˆY[™ÓYˆŒ›ÛÚ^™NˆŒ™[H‹ÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JHˆ_OƒBˆÜÛX\Ø\›š[™ÜË›X\
+
+Ø\›š[™Ë[™^
+HOˆHÙ^O^Ø	İØ\›š[™Ë™ÛØ[KIÚ[™^XO‘ÛØ[İØ\›š[™Ë™ÛØ[NˆİØ\›š[™Ë›Y\ÜØYÙ_OÛOŠ_CBˆİ[ƒBˆ
+HˆÜ[ˆİ[O^ŞÈ›ÛÚ^™NˆŒ™[H‹ÛÛÜˆ˜\ŠK\İXØÙ\ÜÊHˆ_O“›ÈÛÛ\][™\ÜÈ™[Z[™\œËˆÛÛ™š\›HÛ[šXØ[\›ÜšX][™\ÜÈ™Y›Ü™Hš[˜[^š[™ËÜÜ[ŸCBˆÙ]ƒBˆ
+_CBˆÙÛØ[Ë›[™İˆ	‰ˆØ[‘Y]	‰ˆ
+Bˆ]ƒBˆÛ\ÜÓ˜[YOH™Û\ÜËXØ\™ƒBˆİ[O^ŞÃBˆY[™ÎˆŒMœ‹Bˆ\Ü^Nˆ™›^‹Bˆ\İYPÛÛ[ˆ™›^Y[™‹BˆØ\ˆŒM‹Bˆ[YÛ’][\Îˆ˜Ù[\ˆ‹Bˆ_CBˆƒBˆ]ÛƒBˆÛ\ÜÓ˜[YOH˜‹YÚÜİƒBˆÛÛXÚÏ^Ú[™TØ]™Q˜YCBˆ\ØX›Y^Ú\ÔØ]š[™ßCBˆİ[O^ŞÃBˆ\Ü^Nˆ™›^‹Bˆ[YÛ’][\Îˆ˜Ù[\ˆ‹BˆØ\ˆœ‹BˆY[™ÎˆŒLŒ‹Bˆ›ÛÙZYÚˆŒBˆ_CBˆƒBˆØ]™HÚ^™O^ÌMŸHÏˆØ]™H˜YBˆØ]ÛƒBƒBˆ]ÛƒBˆÛ\ÜÓ˜[YOH˜‹\š[X\HƒBˆÛÛXÚÏ^Ú[™Qš[˜[^™RQTCBˆ\ØX›Y^Ú\ÔØ]š[™ßCBˆİ[O^ŞÃBˆ\Ü^Nˆ™›^‹Bˆ[YÛ’][\Îˆ˜Ù[\ˆ‹BˆØ\ˆœ‹BˆY[™ÎˆŒLœ‹Bˆ›ÛÙZYÚˆÌBˆ˜XÚÙÜ›İ[™ˆ˜\ŠK\İXØÙ\ÜÊH‹Bˆ_CBˆƒBˆÚXÚĞÚ\˜ÛHÚ^™O^ÌNHÏˆš[˜[^™HQT[ƒBˆØ]ÛƒBˆÙ]ƒBˆ
+_CBƒBˆÚY\™\œÚ[ÛœË›[™İˆ	‰ˆ
+Bˆ]ˆÛ\ÜÓ˜[YOH™Û\ÜËXØ\™ˆİ[O^ŞÈY[™ÎˆŒMœŒˆ_OƒBˆÈİ[O^ŞÈX\™Ú[ˆŒLœ‹›ÛÚ^™NˆŒM\™[H‹ÛÛÜˆ˜\ŠK\š[X\KY\šÊHˆ_O‘š[˜[^™YQT™\œÚ[Ûˆ\İÜOÚÏƒBˆÛİ[O^ŞÈX\™Ú[ˆY[™ÓYˆŒ‹\Ü^Nˆ™ÜšY‹Ø\ˆ_OƒBˆÚY\™\œÚ[ÛœË›X\
+
+™\œÚ[Û‹[™^
+HOˆÃBˆÛÛœİ™\œÚ[Û“[X™\ˆH\[Ùˆ™\œÚ[Û‹™\œÚ[ÛˆOOH›[X™\ˆˆÈ™\œÚ[Û‹™\œÚ[ÛˆˆY\™\œÚ[ÛœË›[™İH[™^ÃBˆÛÛœİ]]ÜˆH\[Ùˆ™\œÚ[Û‹˜]]Ü“˜[YHOOHœİš[™ÈˆÈ™\œÚ[Û‹˜]]Ü“˜[YHˆ•\˜\\İÃBˆÛÛœİÛØ[Ûİ[H\œ˜^Kš\Ğ\œ˜^J™\œÚ[Û‹™ÛØ[ÊHÈ™\œÚ[Û‹™ÛØ[Ë›[™İˆÃBˆ™]\›ˆHÙ^O^İ™\œÚ[Û‹šYHİ[O^ŞÈ›ÛÚ^™NˆŒœ™[H‹ÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JHˆ_OƒBˆ™\œÚ[Ûˆİ™\œÚ[Û“[X™\ŸH0­ÈÙÛØ[Ûİ[HÛØ[È0­ÈØ]]ÜŸH0­ÈÙ\Ü^RY\\İÜQ]J™\œÚ[Û‹™š[˜[^™Y]ÏÈ™\œÚ[Û‹\]Y]
+_CBˆÛOÃBˆJ_CBˆÛÛƒBˆÙ]ƒBˆ
+_CBƒBˆËÊˆ8¥ 8¥ XÚY]™YÛØ[È\İÜH8¥ 8¥ 
+‹ßCBˆØXÚY]™YÛØ[Ë›[™İˆ	‰ˆ
+Bˆ]ˆÛ\ÜÓ˜[YOH™Û\ÜËXØ\™ˆİ[O^ŞÈY[™ÎˆŒMœŒˆ_OƒBˆ]ÛƒBˆÛÛXÚÏ^Ê
+HOˆÙ]ÚİĞXÚY]™Y\İÜJ
+ŠHOˆ]Š_CBˆİ[O^ŞÃBˆ\Ü^Nˆ™›^‹Bˆ[YÛ’][\Îˆ˜Ù[\ˆ‹BˆØ\ˆ‹Bˆ˜XÚÙÜ›İ[™ˆ››Û™H‹Bˆ›Ü™\ˆ››Û™H‹Bˆİ\œÛÜˆœÚ[\ˆ‹Bˆ›ÛÙZYÚˆBˆÛÛÜˆ˜\ŠK\š[X\KY\šÊH‹Bˆ›ÛÚ^™NˆŒM\™[H‹BˆÚYˆŒL	H‹Bˆ\İYPÛÛ[ˆœÜXÙKX™]ÙY[ˆ‹BˆY[™ÎˆBˆ_CBˆƒBˆÜ[ˆİ[O^ŞÈ\Ü^Nˆ™›^‹[YÛ’][\Îˆ˜Ù[\ˆ‹Ø\ˆˆ_OƒBˆ›ÜHÚ^™O^ÌNHİ[O^ŞÈÛÛÜˆˆÌLNHˆ_HÏƒBˆXÚY]™YÛØ[È\İÜH
+ØXÚY]™YÛØ[Ë›[™İJCBˆÜÜ[ƒBˆÜÚİĞXÚY]™Y\İÜHÈÚ]œ›Û•\Ú^™O^ÌNHÏˆˆÚ]œ›Û‘İÛˆÚ^™O^ÌNHÏŸCBˆØ]ÛƒBƒBˆÜÚİĞXÚY]™Y\İÜH	‰ˆ
+Bˆ]ˆİ[O^ŞÈX\™Ú[•ÜˆŒM‹\Ü^Nˆ™›^‹›^\™Xİ[Ûˆ˜ÛÛ[[ˆ‹Ø\ˆŒLˆ_OƒBˆØXÚY]™YÛØ[Ë›X\
+
+YÊHOˆ
+Bˆ]ƒBˆÙ^O^ØYËšYCBˆİ[O^ŞÃBˆ˜XÚÙÜ›İ[™ˆœ™Ø˜JM‹NKLKŒŠH‹Bˆ›Ü™\ˆŒ\ÛÛY™Ø˜JM‹NKLKŒŠH‹Bˆ›Ü™\”˜Y]\Îˆ‹BˆY[™ÎˆŒLœMœ‹Bˆ\Ü^Nˆ™›^‹Bˆ[YÛ’][\Îˆ™›^\İ\‹BˆØ\ˆŒLœ‹Bˆ_CBˆƒBˆ›ÜHÚ^™O^ÌŒHİ[O^ŞÈÛÛÜˆˆÌLNH‹›^Úš[šÎˆX\™Ú[•ÜˆŒœˆ_HÏƒBˆ]ƒBˆ]ˆİ[O^ŞÈ›ÛÙZYÚˆÌÛÛÜˆ˜\ŠK\š[X\KY\šÊH‹›ÛÚ^™NˆŒ\™[Hˆ_OØYË]_OÙ]ƒBˆ]ˆİ[O^ŞÈ›ÛÚ^™NˆŒÎ™[H‹ÛÛÜˆ˜\ŠK]^\ÙXÛÛ™\JH‹X\™Ú[•ÜˆŒœˆ_OƒBˆØYË™ÛØ[\™X_H	›˜œÜğ­É›˜œÜÈXÚY]™YÛˆØYË˜XÚY]™Y]È™]È]JYË˜XÚY]™Y]
+KÓØØ[Q]Tİš[™Ê
+Hˆ¸ %ŸCBˆÙ]ƒBˆÙ]ƒBˆÜ[ˆÛ\ÜÓ˜[YOH˜Ú\ˆİ[O^ŞÈX\™Ú[“Yˆ˜]]È‹˜XÚÙÜ›İ[™ˆœ™Ø˜JM‹NKLKŒMJH‹ÛÛÜˆˆÌYˆ‹›ÛÙZYÚˆÌ›ÛÚ^™NˆŒÌœ™[H‹›^Úš[šÎˆ_OƒBˆ8§!HXÚY]™YBˆÜÜ[ƒBˆÙ]ƒBˆ
+J_CBˆÙ]ƒBˆ
+_CBˆÙ]ƒBˆ
+_CBˆÙ]ƒBˆÙ]ƒBˆÙ]ƒBˆ
+NÃBŸCB

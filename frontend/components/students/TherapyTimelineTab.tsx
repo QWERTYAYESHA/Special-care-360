@@ -2,18 +2,21 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { therapyTimelineDb } from "@/lib/therapy-timeline-api";
-import { scopeOf } from "@/lib/firestore-api";
+import { abcDb, dailyCareDb, iepDb, milestoneObservationsDb, regressionDb, scopeOf } from "@/lib/firestore-api";
 import { useAuth } from "@/lib/auth-context";
-import { TherapySession, TherapySessionStatus } from "@/types";
+import { TherapySession } from "@/types";
+import { homePlanDb } from "@/lib/teletherapy-api";
+import { api } from "@/lib/api";
+import type { MilestoneObservationDoc } from "@/lib/firestore-api";
+import type { RegressionAlertDoc } from "@/lib/firestore-api";
+import type { HomePlanLog } from "@/lib/teletherapy-api";
 import {
   Clock,
   Video,
   MapPin,
   CheckCircle,
-  XCircle,
   Calendar,
   User,
-  ExternalLink,
   ChevronRight,
   AlertCircle,
 } from "lucide-react";
@@ -76,6 +79,8 @@ function formatDate(dateStr: string): string {
 export default function TherapyTimelineTab({ studentId, studentName }: Props) {
   const { profile } = useAuth();
   const [sessions, setSessions] = useState<TherapySession[]>([]);
+  const [clinicalEvents, setClinicalEvents] = useState<Array<{ id: string; date: string; category: string; summary: string }>>([]);
+  const [unavailableSources, setUnavailableSources] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [selectedSession, setSelectedSession] = useState<TherapySession | null>(null);
@@ -86,17 +91,75 @@ export default function TherapyTimelineTab({ studentId, studentName }: Props) {
     setError(false);
 
     const scope = scopeOf(profile);
-    therapyTimelineDb
-      .list(scope, { studentId })
-      .then((list) => {
-        setSessions(list);
+    let active = true;
+    const dateText = (value: unknown): string => {
+      if (typeof value === "string") return value;
+      if (value && typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
+        try { return value.toDate().toISOString(); } catch { return ""; }
+      }
+      return "";
+    };
+    const results = Promise.allSettled([
+      therapyTimelineDb.list(scope, { studentId }),
+      abcDb.listIncidents(studentId, scope, 50),
+      dailyCareDb.history(studentId, scope, 30),
+      iepDb.listIEPRecords(studentId),
+      milestoneObservationsDb.listForStudent(studentId, profile.centerId),
+      regressionDb.listForStudent(studentId, profile.centerId),
+      homePlanDb.listActivities(scope, studentId),
+      homePlanDb.listLogs(scope, studentId),
+    ] as const);
+    void results.then(async ([sessionResult, abcResult, careResult, iepResult, observationsResult, regressionResult, activitiesResult, logsResult]) => {
+      const failures: string[] = [];
+      const get = <T,>(result: PromiseSettledResult<T>, name: string, fallback: T): T => {
+        if (result.status === "fulfilled") return result.value;
+        failures.push(name);
+        return fallback;
+      };
+      const sessionList = get(sessionResult, "therapy sessions", [] as TherapySession[]);
+      const incidents = get(abcResult, "ABC observations", [] as Record<string, unknown>[]);
+      const journals = get(careResult, "daily care journals", [] as Record<string, unknown>[]);
+      const iepRecords = get(iepResult, "IEP history", [] as Record<string, unknown>[]);
+      const observations = get(observationsResult, "milestone observations", [] as MilestoneObservationDoc[]);
+      const alerts = get(regressionResult, "regression alerts", [] as RegressionAlertDoc[]);
+      const activities = get(activitiesResult, "home activities", [] as Array<{ id: string; title: string }>);
+      const logs = get(logsResult, "home activity logs", [] as HomePlanLog[]);
+      setSessions(sessionList);
+      const events: Array<{ id: string; date: string; category: string; summary: string }> = [];
+      sessionList.forEach((item) => events.push({ id: `session-${item.id}`, date: item.date || item.startDateTime || "", category: "Therapy session", summary: `${item.therapyType} · ${item.status}` }));
+      incidents.forEach((item) => events.push({ id: `abc-${item.id}`, date: dateText(item.timestamp), category: "ABC observation", summary: "Behavior observation recorded" }));
+      journals.forEach((item, index) => events.push({ id: `care-${studentId}-${String(item.date || index)}`, date: dateText(item.date || item.submittedAt), category: "Daily care", summary: "Daily care journal submitted" }));
+      iepRecords.forEach((item, index) => events.push({ id: `iep-${String(item.id || index)}`, date: dateText(item.finalizedAt || item.updatedAt || item.createdAt), category: "IEP version", summary: `Plan ${String(item.status || "updated")} · version ${String(item.version || "")}` }));
+      observations.forEach((item, index) => events.push({ id: `observation-${String(item.id || index)}`, date: dateText(item.observedAt), category: "Milestone observation", summary: `Milestone marked ${String(item.observedStatus || "observed")}` }));
+      alerts.filter((item) => item.resolved !== true).forEach((item, index) => events.push({ id: `regression-${String(item.id || index)}`, date: dateText(item.createdAt), category: "Regression alert", summary: String(item.alertLevel || "Progress alert") }));
+      const activityNames = new Map(activities.map((item) => [item.id, item.title]));
+      logs.forEach((item, index) => events.push({ id: `home-${String(item.id || index)}`, date: dateText(item.date), category: "Home plan", summary: `${activityNames.get(String(item.activityId || "")) || "Home activity"} · ${item.completed === true ? "completed" : "not completed"}` }));
+      if (profile.role === "parent" || profile.role === "therapist") {
+        const clips = await Promise.allSettled(activities.map(async (activity) => {
+          const response = await api.get(`/api/progress-videos/${encodeURIComponent(studentId)}/${encodeURIComponent(activity.id)}`);
+          return Array.isArray(response.data) ? response.data as Array<Record<string, unknown>> : [];
+        }));
+        clips.forEach((result, activityIndex) => {
+          if (result.status === "rejected") { if (!failures.includes("progress videos")) failures.push("progress videos"); return; }
+          result.value.forEach((clip, index) => events.push({
+            id: `video-${String(clip.id || `${activityIndex}-${index}`)}`,
+            date: dateText(clip.createdAt || clip.uploadedAt),
+            category: "Progress video",
+            summary: `${activityNames.get(activities[activityIndex].id) || "Home activity"} · video uploaded`,
+          }));
+        });
+      }
+      if (active) {
+        setClinicalEvents(events.filter((event) => Boolean(event.date)).sort((a, b) => b.date.localeCompare(a.date)));
+        setUnavailableSources(failures);
+        setError(false);
         setLoading(false);
-      })
-      .catch((err) => {
-        console.error("TherapyTimelineTab fetch failed:", err);
-        setError(true);
-        setLoading(false);
-      });
+      }
+    }).catch((err) => {
+      console.error("Clinical timeline fetch failed:", err);
+      if (active) { setError(true); setLoading(false); }
+    });
+    return () => { active = false; };
   }, [profile, studentId]);
 
   const now = new Date().toISOString().substring(0, 10);
@@ -133,25 +196,6 @@ export default function TherapyTimelineTab({ studentId, studentName }: Props) {
       <div className="glass-card" style={{ padding: "24px", color: "var(--danger)", textAlign: "center" }}>
         <AlertCircle size={24} style={{ margin: "0 auto 8px" }} />
         Could not load therapy sessions for this student.
-      </div>
-    );
-  }
-
-  if (sessions.length === 0) {
-    return (
-      <div className="glass-card" style={{ padding: "60px", textAlign: "center" }}>
-        <Calendar size={48} style={{ color: "var(--text-secondary)", margin: "0 auto 16px", opacity: 0.5 }} />
-        <h3 style={{ margin: 0, color: "var(--primary-dark)" }}>No Therapy Sessions Scheduled</h3>
-        <p style={{ color: "var(--text-secondary)", margin: "8px 0 16px", fontSize: "0.9rem" }}>
-          No therapy sessions have been scheduled for {studentName} yet.
-        </p>
-        <Link
-          href="/dashboard/therapy-timeline"
-          className="btn-primary"
-          style={{ display: "inline-flex", alignItems: "center", gap: "6px", textDecoration: "none" }}
-        >
-          <Calendar size={16} /> Open Dynamic Therapy Timeline
-        </Link>
       </div>
     );
   }
@@ -257,6 +301,7 @@ export default function TherapyTimelineTab({ studentId, studentName }: Props) {
           <ChevronRight size={18} style={{ color: "var(--text-secondary)" }} />
         </div>
       </div>
+
     );
   };
 
@@ -292,6 +337,21 @@ export default function TherapyTimelineTab({ studentId, studentName }: Props) {
         </Link>
       </div>
 
+      <section className="glass-card" style={{ padding: "20px" }}>
+        <h4 style={{ margin: "0 0 6px", color: "var(--primary-dark)" }}>Clinical history</h4>
+        <p style={{ margin: "0 0 14px", color: "var(--text-secondary)", fontSize: "0.82rem" }}>Chronological overview for {studentName}; open each feature for full details.</p>
+        {unavailableSources.length > 0 && <p role="status" style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>Some history could not load: {unavailableSources.join(", ")}.</p>}
+        {clinicalEvents.length === 0 ? <p style={{ color: "var(--text-secondary)" }}>No clinical history recorded yet.</p> : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {clinicalEvents.map((event) => <div key={event.id} style={{ display: "flex", gap: 12, alignItems: "baseline", padding: "9px 0", borderBottom: "1px solid rgba(61,79,107,0.1)" }}>
+              <time dateTime={event.date} style={{ minWidth: 150, fontSize: "0.78rem", color: "var(--text-secondary)" }}>{formatDate(event.date)}</time>
+              <span className="chip chip-info" style={{ whiteSpace: "nowrap" }}>{event.category}</span>
+              <span style={{ fontSize: "0.86rem", color: "var(--primary-dark)" }}>{event.summary}</span>
+            </div>)}
+          </div>
+        )}
+      </section>
+
       {/* ── Upcoming ──────────────────────────────────────────────────────── */}
       {upcoming.length > 0 && (
         <section>
@@ -303,6 +363,7 @@ export default function TherapyTimelineTab({ studentId, studentName }: Props) {
           </div>
         </section>
       )}
+      {sessions.length === 0 && <div className="glass-card" style={{ padding: 18, color: "var(--text-secondary)" }}>No therapy sessions are scheduled yet.</div>}
 
       {/* ── Past ──────────────────────────────────────────────────────────── */}
       {past.length > 0 && (
