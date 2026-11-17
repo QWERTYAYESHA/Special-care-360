@@ -1,24 +1,12 @@
 "use client";
 
-import { useEffect, createContext, useContext, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 import PanicFloatingButton from "@/components/layout/PanicFloatingButton";
-
-// ── Sidebar open/close context (used by TopBar hamburger & Sidebar) ─────────
-interface SidebarContextType {
-  isOpen: boolean;
-  toggle: () => void;
-  close: () => void;
-}
-export const SidebarContext = createContext<SidebarContextType>({
-  isOpen: false,
-  toggle: () => {},
-  close: () => {},
-});
-export const useSidebar = () => useContext(SidebarContext);
+import { SidebarContext } from "@/components/layout/SidebarContext";
 
 // ── Role → allowed path prefixes ────────────────────────────────────────────
 // Keep this in step with NAV_ITEMS in components/layout/Sidebar.tsx: this map

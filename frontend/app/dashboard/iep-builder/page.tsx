@@ -4,6 +4,8 @@ import { restoreIep } from "@/lib/workflow-state";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { studentsDb, iepDb, abcDb, regressionDb, StudentDoc, scopeOf } from "@/lib/firestore-api";
+import type { RegressionAlertDoc } from "@/lib/firestore-api";
+import { smartCompletenessWarnings } from "@/lib/iep-validation";
 import { IEPGoal, MedicalProfile, CarePlan, ABCIncident } from "@/types";
 import toast from "react-hot-toast";
 
@@ -26,6 +28,19 @@ import {
   ChevronUp,
 } from "lucide-react";
 
+function displayIepHistoryDate(value: unknown): string {
+  try {
+    const date = typeof value === "string"
+      ? new Date(value)
+      : value && typeof value === "object" && "toDate" in value && typeof value.toDate === "function"
+        ? value.toDate()
+        : null;
+    return date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : "date unavailable";
+  } catch {
+    return "date unavailable";
+  }
+}
+
 export default function IEPBuilderPage() {
   const { profile, user, loading } = useAuth();
   const [students, setStudents] = useState<StudentDoc[]>([]);
@@ -35,7 +50,7 @@ export default function IEPBuilderPage() {
   // Student Context State
   const [medicalProfile, setMedicalProfile] = useState<MedicalProfile | null>(null);
   const [abcIncidents, setAbcIncidents] = useState<ABCIncident[]>([]);
-  const [activeRegressionAlerts, setActiveRegressionAlerts] = useState<any[]>([]);
+  const [activeRegressionAlerts, setActiveRegressionAlerts] = useState<RegressionAlertDoc[]>([]);
   const [alertKey, setAlertKey] = useState(0);
   const [loadingStudentData, setLoadingStudentData] = useState(false);
 
@@ -47,6 +62,7 @@ export default function IEPBuilderPage() {
   const [showAchievedHistory, setShowAchievedHistory] = useState(false);
   const [iepSummary, setIepSummary] = useState<string>("");
   const [careVersion, setCareVersion] = useState(0);
+  const [iepVersions, setIepVersions] = useState<Array<Record<string, unknown> & { id: string }>>([]);
   const [disclaimer, setDisclaimer] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -71,6 +87,9 @@ export default function IEPBuilderPage() {
 
   const isTherapist = profile?.role === "therapist";
   const canEdit = isTherapist;
+  const smartWarnings = goals.flatMap((goal, index) =>
+    smartCompletenessWarnings(goal).map((message) => ({ goal: index + 1, message }))
+  );
 
   // Load Students
   useEffect(() => {
@@ -98,6 +117,7 @@ export default function IEPBuilderPage() {
     setInsufficientDataMsg("");
     setGoals([]);
     setIepSummary("");
+    setIepVersions([]);
     setAchievedGoals([]);   // clear previous student's history
     setPendingAiGoal(null); // clear previous student's pending AI suggestion
 
@@ -108,6 +128,7 @@ export default function IEPBuilderPage() {
       let medData: MedicalProfile | Record<string, unknown> = {};
       let careData: CarePlan | Record<string, unknown> = {};
       let abcData: ABCIncident[] = [];
+      let versionData: Array<Record<string, unknown> & { id: string }> = [];
 
       try {
         medData = (await studentsDb.getMedical(selectedStudentId)) as MedicalProfile;
@@ -119,7 +140,7 @@ export default function IEPBuilderPage() {
       } catch (e) {
         console.warn("getCarePlan failed:", e);
       }
-      let alertsData: any[] = [];
+      let alertsData: RegressionAlertDoc[] = [];
       try {
         abcData = (await abcDb.listIncidents(selectedStudentId, scopeOf(profile), 10)) as ABCIncident[];
       } catch (e) {
@@ -135,10 +156,17 @@ export default function IEPBuilderPage() {
         }
       }
 
+      try {
+        versionData = await iepDb.listIEPRecords(selectedStudentId) as Array<Record<string, unknown> & { id: string }>;
+      } catch (e) {
+        console.warn("Could not load finalized IEP history:", e);
+      }
+
       if (!active) return;
       setMedicalProfile(medData as MedicalProfile);
       setAbcIncidents(abcData || []);
       setActiveRegressionAlerts(alertsData);
+      setIepVersions(versionData);
 
       // Pre-populate with IEP goals based on role:
       // - Therapist: only restore if a real IEP was previously saved (Active or draft).
@@ -526,6 +554,14 @@ export default function IEPBuilderPage() {
       return;
     }
 
+    if (smartWarnings.length > 0) {
+      const review = smartWarnings.map((warning) => `Goal ${warning.goal}: ${warning.message}`).join("\n");
+      const accepted = window.confirm(
+        `SMART completeness reminders:\n\n${review}\n\nThis check cannot assess clinical achievability or appropriateness. Review the plan professionally. Finalize anyway?`
+      );
+      if (!accepted) return;
+    }
+
     setIsSaving(true);
     try {
       await iepDb.finalize(
@@ -540,6 +576,7 @@ export default function IEPBuilderPage() {
         user?.uid,
         profile?.name
       );
+      setIepVersions(await iepDb.listIEPRecords(selectedStudentId) as Array<Record<string, unknown> & { id: string }>);
       toast.success("IEP Finalized & synchronized with student's active Care Plan! 🎯");
       setCareVersion(version => version + 1);
     } catch (err) {
@@ -771,7 +808,7 @@ export default function IEPBuilderPage() {
               </p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                {activeRegressionAlerts.map((alt: any) => (
+                {activeRegressionAlerts.map((alt) => (
                   <div
                     key={alt.id}
                     style={{
@@ -1333,6 +1370,19 @@ export default function IEPBuilderPage() {
 
           {/* Action Footer for Saving / Finalizing */}
           {goals.length > 0 && canEdit && (
+            <div className="glass-card" style={{ padding: "14px 18px", borderLeft: `4px solid ${smartWarnings.length ? "var(--warning)" : "var(--success)"}` }}>
+              <strong style={{ color: "var(--primary-dark)" }}>SMART completeness review</strong>
+              <p style={{ margin: "6px 0", fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                These drafting prompts check for observable wording, measurement detail, relevance and a timeframe. They do not rate clinical quality; therapist review remains required.
+              </p>
+              {smartWarnings.length > 0 ? (
+                <ul style={{ margin: 0, paddingLeft: 20, fontSize: "0.8rem", color: "var(--text-secondary)" }}>
+                  {smartWarnings.map((warning, index) => <li key={`${warning.goal}-${index}`}>Goal {warning.goal}: {warning.message}</li>)}
+                </ul>
+              ) : <span style={{ fontSize: "0.8rem", color: "var(--success)" }}>No completeness reminders. Confirm clinical appropriateness before finalizing.</span>}
+            </div>
+          )}
+          {goals.length > 0 && canEdit && (
             <div
               className="glass-card"
               style={{
@@ -1373,6 +1423,22 @@ export default function IEPBuilderPage() {
               >
                 <CheckCircle size={18} /> Finalize IEP Plan
               </button>
+            </div>
+          )}
+
+          {iepVersions.length > 0 && (
+            <div className="glass-card" style={{ padding: "16px 20px" }}>
+              <h3 style={{ margin: "0 0 12px", fontSize: "0.95rem", color: "var(--primary-dark)" }}>Finalized IEP version history</h3>
+              <ol style={{ margin: 0, paddingLeft: 22, display: "grid", gap: 8 }}>
+                {iepVersions.map((version, index) => {
+                  const versionNumber = typeof version.version === "number" ? version.version : iepVersions.length - index;
+                  const author = typeof version.authorName === "string" ? version.authorName : "Therapist";
+                  const goalCount = Array.isArray(version.goals) ? version.goals.length : 0;
+                  return <li key={version.id} style={{ fontSize: "0.82rem", color: "var(--text-secondary)" }}>
+                    Version {versionNumber} · {goalCount} goals · {author} · {displayIepHistoryDate(version.finalizedAt ?? version.updatedAt)}
+                  </li>;
+                })}
+              </ol>
             </div>
           )}
 

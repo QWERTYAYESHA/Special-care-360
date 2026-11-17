@@ -38,6 +38,16 @@ function modules(uid, extra = {}) {
     const mod = {exports:{}};
     const requireModule = path => {
       if (path === 'firebase/firestore') return sdk;
+      if (path === 'firebase/app') return {
+        initializeApp: (_config, name) => ({name}),
+        deleteApp: async () => {},
+      };
+      if (path === 'firebase/auth') return {
+        getAuth: app => ({app}),
+        createUserWithEmailAndPassword: async (_auth, email) => ({user:{uid:`synthetic-${email}`}}),
+        signOut: async () => {},
+      };
+      if (path === './firebase-config') return {firebaseConfig:{}};
       if (path === './firebase') return {db,auth:{currentUser:{uid,getIdToken:async()=> 'synthetic'}}};
       if (path === 'uuid') return {v4:()=>crypto.randomUUID()};
       if (path === './api') return {api:{post:async()=>{throw new Error('Simulated network outage')}}};
@@ -112,6 +122,33 @@ test('saved draft reload restores draft goals rather than previous active goals'
   assert.equal(restored.summary,'Draft summary');
   assert.equal(restored.draft,true);
   assert.equal(load('workflow-state').restoreIep(care,false).goals[0].id,'g1');
+});
+
+test('SMART completeness prompts detect missing detail without blocking clinical review',()=>{
+  const {load}=modules('h1');
+  const validate=load('iep-validation').smartCompletenessWarnings;
+  const warnings=validate({title:'Improve communication',goalArea:'Speech',targetTimeframe:'',measurementMethod:'',rationale:''});
+  assert.ok(warnings.some(message=>message.startsWith('Specific:')));
+  assert.ok(warnings.some(message=>message.startsWith('Measurable:')));
+  assert.ok(warnings.some(message=>message.startsWith('Relevant:')));
+  assert.ok(warnings.some(message=>message.startsWith('Time-bound:')));
+  assert.deepEqual(validate({
+    title:'Given a visual prompt, student will request preferred items in 4 out of 5 opportunities',
+    goalArea:'Communication',targetTimeframe:'12 weeks',measurementMethod:'Weekly opportunity count',rationale:'Supports functional communication',
+  }),[]);
+});
+
+test('finalized IEP versions are appended and cannot overwrite prior clinical records',async()=>{
+  const {db,load}=modules('h1');
+  const iep=load('firestore-api').iepDb;
+  const first=await iep.finalize('s1',{goals:[{id:'v1',title:'Version one'}],summary:'First',expectedVersion:0,centerId:'c1'},'h1','Therapist');
+  const second=await iep.finalize('s1',{goals:[{id:'v2',title:'Version two'}],summary:'Second',expectedVersion:1,centerId:'c1'},'h1','Therapist');
+  assert.notEqual(first,second);
+  const history=await iep.listIEPRecords('s1');
+  assert.equal(history.length,2);
+  assert.equal(history.find(record=>record.id===first).version,1);
+  assert.equal(history.find(record=>record.id===second).version,2);
+  await assert.rejects(sdk.updateDoc(sdk.doc(db,`students/s1/iepRecords/${first}`),{summary:'Changed old record'}));
 });
 
 test('concurrent goal achievements preserve both histories and unknown IDs fail', async()=>{

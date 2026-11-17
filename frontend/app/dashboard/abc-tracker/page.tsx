@@ -147,6 +147,7 @@ export default function ABCTrackerPage() {
             <button 
               className="btn-primary" 
               onClick={generateAiReport}
+              disabled={incidents.length < 5 || loading}
               onMouseEnter={() => setBtnHover(true)}
               onMouseLeave={() => setBtnHover(false)}
               style={{ 
@@ -160,12 +161,14 @@ export default function ABCTrackerPage() {
                 transform: btnHover ? "translateY(-1px)" : "none",
                 transition: "all 0.2s ease",
                 border: "none",
+                opacity: incidents.length < 5 || loading ? 0.55 : 1,
+                cursor: incidents.length < 5 || loading ? "not-allowed" : "pointer",
                 display: "flex",
                 alignItems: "center",
                 gap: "8px"
               }}
             >
-              <Sparkles size={16} /> Generate Deep AI Report
+              <Sparkles size={16} /> {incidents.length < 5 ? `AI report needs ${5 - incidents.length} more observation${5 - incidents.length === 1 ? "" : "s"}` : "Generate Deep AI Report"}
             </button>
             <button id="abc-log-btn" className="btn-primary" onClick={() => setShowModal(true)} style={{ padding: "10px 20px" }}>
               + Log Incident
@@ -174,8 +177,14 @@ export default function ABCTrackerPage() {
         )}
       </div>
 
+      {incidents.length < 5 && !loading && (
+        <div className="glass-card" role="status" style={{ padding: "14px 18px", marginBottom: 20, color: "var(--text-secondary)" }}>
+          Pattern summaries and AI analysis appear after 5 incidents, as required by the clinical reporting threshold. {5 - incidents.length} more observation{5 - incidents.length === 1 ? " is" : "s are"} needed.
+        </div>
+      )}
+
       {/* Stats row */}
-      {patterns && (
+      {patterns && incidents.length >= 5 && (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
           {[
             { label: "Total Incidents", value: patterns.totalIncidents, icon: <BarChart2 size={22} style={{ color: "var(--accent-purple)" }} />, color: "var(--accent-purple-soft)" },
@@ -193,6 +202,7 @@ export default function ABCTrackerPage() {
       )}
 
       {/* Main grid */}
+      {incidents.length >= 5 && <>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "20px" }}>
         <HeatmapGrid data={loading ? [] : heatmap} />
         {/* AI Insights */}
@@ -227,8 +237,9 @@ export default function ABCTrackerPage() {
         <TrendChart incidents={loading ? [] : incidents} />
         <TriggerBarChart patterns={loading ? null : patterns} />
       </div>
+      </>}
 
-      <PatternTable patterns={loading ? null : patterns} />
+      {incidents.length >= 5 && <PatternTable patterns={loading ? null : patterns} />}
 
       {/* Recent incidents table */}
       <div className="glass-card" style={{ padding: "20px", marginTop: "20px" }}>

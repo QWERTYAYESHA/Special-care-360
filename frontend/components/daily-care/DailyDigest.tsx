@@ -26,7 +26,7 @@ const MOOD_ICONS: Record<MoodType, React.ComponentType<{ size?: number; classNam
   tired: Moon 
 };
 const MOOD_COLORS: Record<MoodType, string> = { happy: "#38a169", neutral: "#718096", sad: "#3182ce", agitated: "#e53e3e", tired: "#805ad5" };
-const ATE_LABELS: Record<string, string> = { fully: "Fully", partially: "Partially", refused: "Refused", none: "Did not eat" };
+const ATE_LABELS: Record<string, string> = { "not-recorded": "Not observed", fully: "Fully", partially: "Partially", refused: "Refused", none: "Did not eat" };
 const MEAL_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = { 
   breakfast: Coffee, 
   lunch: Utensils, 
@@ -39,10 +39,11 @@ export default function DailyDigest({ journal, studentName }: Props) {
   // Generate warm summary sentence
   const morningMood = journal.moodTimeline.find(m => m.slot === "Morning")?.mood || "neutral";
   const endMood = journal.moodTimeline.find(m => m.slot === "End of Day")?.mood || "neutral";
-  const lunchAte = journal.meals?.lunch?.ate || "partially";
+  const lunchAte = journal.meals?.lunch?.ate || "not-recorded";
   const activity = journal.physicalActivity;
 
-  const summary = `${studentName} had a ${morningMood} morning, ${ATE_LABELS[lunchAte].toLowerCase()} their lunch, and had a ${activity.toLowerCase()} day. They ended the day feeling ${endMood}.`;
+  const lunchSummary = lunchAte === "not-recorded" ? "lunch was not observed" : `${ATE_LABELS[lunchAte].toLowerCase()} their lunch`;
+  const summary = `${studentName} had a ${morningMood} morning, ${lunchSummary}, and had a ${activity.toLowerCase()} day. They ended the day feeling ${endMood}.`;
 
   const hygieneDone = Object.values(journal.hygiene || {}).filter(Boolean).length;
   const hygieneTotal = Object.values(journal.hygiene || {}).length;
@@ -78,8 +79,8 @@ export default function DailyDigest({ journal, studentName }: Props) {
                 <div style={{ fontSize: "0.82rem", fontWeight: 600, textTransform: "capitalize", color: "var(--text-secondary)" }}>{meal}</div>
                 {journal.meals?.[meal]?.notes && <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: "2px" }}>{journal.meals[meal].notes}</div>}
               </div>
-              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: journal.meals?.[meal]?.ate === "fully" ? "var(--success)" : journal.meals?.[meal]?.ate === "partially" ? "var(--warning)" : "var(--danger)" }}>
-                {ATE_LABELS[journal.meals?.[meal]?.ate || "partially"]}
+              <span style={{ fontSize: "0.78rem", fontWeight: 700, color: journal.meals?.[meal]?.ate === "fully" ? "var(--success)" : journal.meals?.[meal]?.ate === "partially" ? "var(--warning)" : journal.meals?.[meal]?.ate === "refused" ? "var(--danger)" : "var(--text-secondary)" }}>
+                {ATE_LABELS[journal.meals?.[meal]?.ate || "not-recorded"]}
               </span>
             </div>
           ))}

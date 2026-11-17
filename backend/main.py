@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from firebase_admin_init import init_firebase, is_placeholder_mode
 from medication_monitor import check_missed_medication_doses
 from panic_delivery import process_pending_alerts, process_pending_emails
-from routers import auth, students, daily_care, abc_tracker, panic, ai_insights, teletherapy, regression, therapy_sessions, therapy_timeline
+from routers import auth, students, daily_care, abc_tracker, panic, ai_insights, teletherapy, regression, therapy_sessions, therapy_timeline, progress_videos
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -48,6 +48,17 @@ async def _panic_email_loop(executor):
         await asyncio.sleep(5)
 
 
+async def _progress_video_retention_loop(executor):
+    while True:
+        try:
+            removed = await asyncio.get_running_loop().run_in_executor(executor, progress_videos.purge_expired_clips)
+            if removed:
+                logger.info("Purged %d expired progress videos", removed)
+        except Exception:
+            logger.exception("Progress-video retention sweep failed")
+        await asyncio.sleep(24 * 60 * 60)
+
+
 @asynccontextmanager
 async def lifespan(_app):
     # Safety scans have capacity independent of request/AI/authentication work.
@@ -55,6 +66,7 @@ async def lifespan(_app):
     monitor_task = None
     delivery_task = None
     email_task = None
+    retention_task = None
     if is_placeholder_mode():
         logger.warning("Missed-dose monitoring is disabled in placeholder Firestore mode.")
     else:
@@ -62,11 +74,12 @@ async def lifespan(_app):
         monitor_task = asyncio.create_task(_medication_monitor_loop(executor))
         delivery_task = asyncio.create_task(_panic_delivery_loop(executor))
         email_task = asyncio.create_task(_panic_email_loop(executor))
+        retention_task = asyncio.create_task(_progress_video_retention_loop(executor))
 
     try:
         yield
     finally:
-        for task in (monitor_task, delivery_task, email_task):
+        for task in (monitor_task, delivery_task, email_task, retention_task):
             if task:
                 task.cancel()
                 try:
@@ -108,6 +121,7 @@ app.include_router(teletherapy.router)
 app.include_router(regression.router)
 app.include_router(therapy_sessions.router)
 app.include_router(therapy_timeline.router)
+app.include_router(progress_videos.router)
 
 
 @app.get("/")

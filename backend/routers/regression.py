@@ -6,7 +6,7 @@ from typing import Literal, Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from firebase_admin import firestore
-from firebase_admin_init import get_db
+from firebase_admin_init import MockFirestoreClient, get_db
 from middleware.auth_middleware import get_current_user, require_role
 from middleware.student_access import authorize_student_data, valid_id
 
@@ -104,13 +104,13 @@ def save_observation(db, body, user):
                 tx.set(notification, {**linked, "recipientId": uid, "senderId": "system", "type": "regression_warning", "title": "Regression review required", "message": f"{student.get('name', 'Student')}: {goal.get('title', 'Skill')}. {reason}", "read": False, "createdAt": now})
         return result
 
-    from firebase_admin_init import is_placeholder_mode
-    if is_placeholder_mode():
+    # Only the explicit JSON-backed development database needs its direct
+    # commit path. Other test stores and the real Firestore emulator/database
+    # must use the transactional wrapper, even when mock auth is enabled for
+    # isolated unit tests.
+    if isinstance(db, MockFirestoreClient):
         return commit(db.transaction())
-    try:
-        return firestore.transactional(commit)(db.transaction())
-    except Exception:
-        return commit(db.transaction())
+    return firestore.transactional(commit)(db.transaction())
 
 
 @router.post("/observations")

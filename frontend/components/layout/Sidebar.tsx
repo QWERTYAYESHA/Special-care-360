@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
-import { useSidebar } from "@/app/dashboard/layout";
+import { useSidebar } from "@/components/layout/SidebarContext";
 import { Users, BookOpen, Brain, Bell, Key, AlertTriangle, LogOut, Receipt, Video, Home, Calendar } from "lucide-react";
 
 interface NavItem {

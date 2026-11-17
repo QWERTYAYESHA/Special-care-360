@@ -83,6 +83,10 @@ jobs:
       - name: Run backend unit tests
         working-directory: backend
         run: python -m unittest discover -s tests
+        env:
+          # Unit tests intentionally exercise the explicit mock-auth/database
+          # mode; production startup still fails closed without credentials.
+          ALLOW_LOCAL_MOCK: "true"
 
   firestore-tests:
     name: Verify Firestore rules and persisted workflows

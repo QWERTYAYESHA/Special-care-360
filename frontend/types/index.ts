@@ -108,7 +108,7 @@ export interface CarePlan {
 
 // ─── Daily Care ────────────────────────────────────────────────────────────
 
-export type MealStatus = "fully" | "partially" | "refused";
+export type MealStatus = "not-recorded" | "fully" | "partially" | "refused";
 export type MoodType = "happy" | "neutral" | "sad" | "agitated" | "tired";
 export type ActivityLevel = "Active" | "Moderate" | "Low" | "Bed Rest";
 

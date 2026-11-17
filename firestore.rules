@@ -93,8 +93,8 @@ service cloud.firestore {
       }
       match /iepRecords/{docId} {
         allow read: if child(id);
-        allow create, update: if role('therapist') && activeChild(id);
-        allow delete: if false;
+        allow create: if role('therapist') && activeChild(id);
+        allow update, delete: if false;
       }
       match /medicationAdministrations/{doseId} {
         allow read: if child(id);
@@ -155,7 +155,18 @@ service cloud.firestore {
     match /invoices/{id} {
       allow read: if (admin() && center(resource.data)) || (role('parent') && child(resource.data.studentId));
       allow create: if admin() && linked(request.resource.data);
-      allow update: if admin() && linked(request.resource.data) && unchangedLink();
+      allow update: if (admin() && linked(request.resource.data) && unchangedLink()) ||
+        (role('parent') && child(resource.data.studentId) && resource.data.parentId == request.auth.uid &&
+          resource.data.status in ['pending', 'overdue'] &&
+          !resource.data.keys().hasAny(['transferSubmission']) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['transferSubmission']) &&
+          request.resource.data.transferSubmission.keys().hasOnly(['reference', 'submittedBy', 'submittedAt', 'status']) &&
+          request.resource.data.transferSubmission.reference is string &&
+          request.resource.data.transferSubmission.reference.size() >= 4 &&
+          request.resource.data.transferSubmission.reference.size() <= 80 &&
+          request.resource.data.transferSubmission.submittedBy == request.auth.uid &&
+          request.resource.data.transferSubmission.submittedAt == request.time &&
+          request.resource.data.transferSubmission.status == 'pending');
       allow delete: if false;
     }
     match /payments/{id} {

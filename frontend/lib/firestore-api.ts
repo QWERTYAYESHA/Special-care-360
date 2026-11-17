@@ -1012,6 +1012,23 @@ export const adminDb = {
   },
 };
 
+export const billingDb = {
+  submitBankTransfer: async (invoiceId: string, reference: string, parentId: string): Promise<void> => {
+    const cleaned = reference.trim();
+    if (cleaned.length < 4 || cleaned.length > 80) {
+      throw new Error("Enter a transaction reference between 4 and 80 characters.");
+    }
+    await updateDoc(doc(db, "invoices", invoiceId), {
+      transferSubmission: {
+        reference: cleaned,
+        submittedBy: parentId,
+        submittedAt: serverTimestamp(),
+        status: "pending",
+      },
+    });
+  },
+};
+
 // ─── IEP Builder ──────────────────────────────────────────────────────────────
 
 export interface SavedGoalState {
@@ -1044,7 +1061,9 @@ export const iepDb = {
   },
 
   finalize: async (studentId: string, iepData: Record<string, unknown>, authorUid?: string, authorName?: string): Promise<string> => {
-    const iepId = (iepData.id as string) || uuidv4();
+    // Each finalization receives a new immutable record ID so a new version
+    // can never replace an earlier clinical record.
+    const iepId = uuidv4();
 
     interface RawGoal {
       id?: string;
@@ -1080,6 +1099,7 @@ export const iepDb = {
     await careTransaction(reference, async (transaction, snapshot) => {
     const version = Number(snapshot.data()?.version ?? 0);
     if (Number(iepData.expectedVersion ?? 0) !== version) throw new Error("Care plan changed. Reload before finalizing.");
+    const finalizedAt = serverTimestamp();
     transaction.set(
       reference,
       {
@@ -1095,6 +1115,21 @@ export const iepDb = {
       },
       { merge: true }
     );
+    transaction.set(doc(db, "students", studentId, "iepRecords", iepId), {
+      id: iepId,
+      studentId,
+      centerId: typeof iepData.centerId === "string" ? iepData.centerId : "",
+      version: version + 1,
+      status: "finalized",
+      goals: carePlanGoals,
+      summary: typeof iepData.summary === "string" ? iepData.summary : "",
+      generatedByAi: iepData.generatedByAi === true,
+      authorUid: authorUid || "",
+      authorName: authorName || "Therapist",
+      finalizedAt,
+      createdAt: finalizedAt,
+      updatedAt: finalizedAt,
+    });
     });
 
     // Notify Parent (non-fatal)
@@ -1259,6 +1294,28 @@ function firestoreDate(value: unknown): string {
   return "";
 }
 
+function parseRegressionAlert(value: unknown): RegressionAlertDoc | null {
+  if (!value || typeof value !== "object") return null;
+  const alert = value as Record<string, unknown>;
+  if (typeof alert.id !== "string" || typeof alert.studentId !== "string" ||
+      typeof alert.centerId !== "string" || typeof alert.goalId !== "string") return null;
+  return {
+    ...(alert as unknown as Omit<RegressionAlertDoc, "id" | "createdAt" | "resolved" | "previousProgress" | "currentProgress" | "decline" | "alertLevel">),
+    id: alert.id,
+    studentId: alert.studentId,
+    centerId: alert.centerId,
+    goalId: alert.goalId,
+    studentName: typeof alert.studentName === "string" ? alert.studentName : "",
+    goalTitle: typeof alert.goalTitle === "string" ? alert.goalTitle : "",
+    previousProgress: typeof alert.previousProgress === "number" ? alert.previousProgress : 100,
+    currentProgress: typeof alert.currentProgress === "number" ? alert.currentProgress : 0,
+    decline: typeof alert.decline === "number" ? alert.decline : 100,
+    alertLevel: alert.alertLevel === "Monitoring" ? "Monitoring" : "Regression Warning",
+    resolved: alert.resolved === true,
+    createdAt: firestoreDate(alert.createdAt),
+  };
+}
+
 export const regressionDb = {
   /** Fetch all unresolved regression alerts for a centre (therapist/admin dashboard) */
   listUnresolved: async (centerId: string): Promise<RegressionAlertDoc[]> => {
@@ -1280,7 +1337,9 @@ export const regressionDb = {
       const { api } = await import("./api");
       const res = await api.get(`/api/regression/alerts?centerId=${centerId}&unresolvedOnly=true`);
       if (Array.isArray(res.data)) {
-        res.data.forEach((alt: any) => {
+        res.data.forEach((raw: unknown) => {
+          const alt = parseRegressionAlert(raw);
+          if (!alt) return;
           if (alt?.id && !alertsMap.has(alt.id) && !alt.resolved) {
             alertsMap.set(alt.id, alt);
           }
@@ -1291,7 +1350,9 @@ export const regressionDb = {
     try {
       const stored = JSON.parse(localStorage.getItem("special_care_regression_alerts") || "[]");
       if (Array.isArray(stored)) {
-        stored.forEach((alt: any) => {
+        stored.forEach((raw: unknown) => {
+          const alt = parseRegressionAlert(raw);
+          if (!alt) return;
           if ((!centerId || alt.centerId === centerId) && !alt.resolved && !alertsMap.has(alt.id)) {
             alertsMap.set(alt.id, alt);
           }
@@ -1322,7 +1383,9 @@ export const regressionDb = {
       const { api } = await import("./api");
       const res = await api.get(`/api/regression/alerts?studentId=${studentId}&centerId=${centerId}`);
       if (Array.isArray(res.data)) {
-        res.data.forEach((alt: any) => {
+        res.data.forEach((raw: unknown) => {
+          const alt = parseRegressionAlert(raw);
+          if (!alt) return;
           if (alt?.id && !alertsMap.has(alt.id)) {
             alertsMap.set(alt.id, alt);
           }
@@ -1333,7 +1396,9 @@ export const regressionDb = {
     try {
       const stored = JSON.parse(localStorage.getItem("special_care_regression_alerts") || "[]");
       if (Array.isArray(stored)) {
-        stored.forEach((alt: any) => {
+        stored.forEach((raw: unknown) => {
+          const alt = parseRegressionAlert(raw);
+          if (!alt) return;
           if (alt?.studentId === studentId && (!centerId || alt.centerId === centerId)) {
             if (alt.id && !alertsMap.has(alt.id)) {
               alertsMap.set(alt.id, alt);
@@ -1476,14 +1541,17 @@ export const milestoneObservationsDb = {
       }
     });
     pendingObservations.delete(key);
-    if (response.data?.alert) {
+    const responseAlert = parseRegressionAlert((response.data as { alert?: unknown } | undefined)?.alert);
+    if (responseAlert) {
       try {
-        const stored = JSON.parse(localStorage.getItem("special_care_regression_alerts") || "[]");
-        const filtered = stored.filter((a: any) => a.id !== response.data.alert.id);
-        filtered.unshift(response.data.alert);
+        const stored: unknown = JSON.parse(localStorage.getItem("special_care_regression_alerts") || "[]");
+        const filtered = Array.isArray(stored)
+          ? stored.map(parseRegressionAlert).filter((alert): alert is RegressionAlertDoc => Boolean(alert && alert.id !== responseAlert.id))
+          : [];
+        filtered.unshift(responseAlert);
         localStorage.setItem("special_care_regression_alerts", JSON.stringify(filtered.slice(0, 50)));
         if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("regression-alert-updated", { detail: response.data.alert }));
+          window.dispatchEvent(new CustomEvent("regression-alert-updated", { detail: responseAlert }));
         }
       } catch {}
     }

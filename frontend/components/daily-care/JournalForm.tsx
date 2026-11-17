@@ -30,15 +30,16 @@ const MOODS_LIST: { value: MoodType; icon: React.ComponentType<{ size?: number; 
 ];
 const MOOD_SLOTS = ["Morning", "Midday", "After Lunch", "End of Day"];
 const ATE_OPTIONS: { value: MealStatus; label: string }[] = [
+  { value: "not-recorded", label: "Not observed" },
   { value: "fully", label: "Fully" }, { value: "partially", label: "Partially" }, { value: "refused", label: "Refused" }
 ];
 const ACTIVITY_OPTIONS: ActivityLevel[] = ["Active", "Moderate", "Low", "Bed Rest"];
 
 const EMPTY_JOURNAL: Omit<DailyCareJournal, "studentId" | "date" | "submittedBy"> = {
   meals: {
-    breakfast: { ate: "fully", notes: "" },
-    lunch: { ate: "fully", notes: "" },
-    snack: { ate: "fully", notes: "" },
+    breakfast: { ate: "not-recorded", notes: "" },
+    lunch: { ate: "not-recorded", notes: "" },
+    snack: { ate: "not-recorded", notes: "" },
   },
   hygiene: { teethBrushed: false, handsWashed: false, diaperAssisted: false, hairCombed: false },
   moodTimeline: MOOD_SLOTS.map(slot => ({ slot, mood: "neutral" as MoodType })),
@@ -105,7 +106,7 @@ export default function JournalForm({ studentId, studentName, date, initialData 
   };
 
   const MEAL_ICONS = { breakfast: Coffee, lunch: Utensils, snack: Apple };
-  const ateColor = { fully: "var(--success)", partially: "var(--warning)", refused: "var(--danger)" };
+  const ateColor: Record<MealStatus, string> = { "not-recorded": "var(--text-secondary)", fully: "var(--success)", partially: "var(--warning)", refused: "var(--danger)" };
 
   return (
     <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "20px" }}>

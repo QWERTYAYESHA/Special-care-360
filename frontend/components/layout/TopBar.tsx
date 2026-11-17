@@ -2,7 +2,7 @@
 
 import { useAuth } from "@/lib/auth-context";
 import { usePathname, useRouter } from "next/navigation";
-import { useSidebar } from "@/app/dashboard/layout";
+import { useSidebar } from "@/components/layout/SidebarContext";
 import { useEffect, useState } from "react";
 import { collection, query, where, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";

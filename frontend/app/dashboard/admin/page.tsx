@@ -60,6 +60,7 @@ interface AdminInvoice {
   month: string;
   issued: string;
   status: "paid" | "pending" | "overdue";
+  transferSubmission?: { reference: string; submittedBy: string; status: "pending" | "rejected"; submittedAt?: { toDate?: () => Date } };
 }
 
 interface AdminPayment {
@@ -313,6 +314,7 @@ export default function AdminDashboard() {
           month: (d.month as string) ?? "",
           issued: (d.issued as string) ?? "",
           status: (d.status as AdminInvoice["status"]) ?? "pending",
+          transferSubmission: d.transferSubmission as AdminInvoice["transferSubmission"],
         })));
 
         setPayments(payData.map((d: Record<string, unknown>) => ({
@@ -1477,7 +1479,14 @@ export default function AdminDashboard() {
                       <td style={{ fontWeight: 600 }}>{inv.studentName}</td>
                       <td style={{ fontWeight: 700 }}>₨ {inv.amount.toLocaleString()}</td>
                       <td>{inv.month}</td>
-                      <td style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>{inv.issued}</td>
+                      <td style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>
+                        {inv.issued}
+                        {inv.transferSubmission?.status === "pending" && (
+                          <div style={{ color: "var(--warning)", marginTop: 4, fontSize: "0.75rem" }}>
+                            Transfer ref: {inv.transferSubmission.reference}
+                          </div>
+                        )}
+                      </td>
                       <td>{feeStatusLabels[inv.status]}</td>
                       <td style={{ textAlign: "right" }}>
                         <div style={{ display: "flex", gap: "6px", justifyContent: "flex-end" }}>
@@ -1493,10 +1502,10 @@ export default function AdminDashboard() {
                             <button
                               className="btn-primary"
                               onClick={() => handleMarkPaid(inv.id)}
-                              title="Mark Paid"
+                              title={inv.transferSubmission?.status === "pending" ? "Verify transfer and mark paid" : "Record payment received"}
                               style={{ padding: "4px 8px", fontSize: "0.78rem" }}
                             >
-                              <Check size={14} /> Paid
+                              <Check size={14} /> {inv.transferSubmission?.status === "pending" ? "Verify & Paid" : "Paid"}
                             </button>
                           )}
                         </div>
@@ -1846,7 +1855,7 @@ export default function AdminDashboard() {
                                       <b>Mood:</b> <span style={{ textTransform: "capitalize" }}>{j.moodTimeline?.[0]?.mood || "neutral"}</span>
                                     </div>
                                     <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>
-                                      <b>Meals:</b> Breakfast: {j.meals?.breakfast?.ate}, Lunch: {j.meals?.lunch?.ate}
+                                      <b>Meals:</b> Breakfast: {j.meals?.breakfast?.ate || "not observed"}, Lunch: {j.meals?.lunch?.ate || "not observed"}
                                     </div>
                                     {j.teacherNotes && (
                                       <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontStyle: "italic", marginTop: "4px", background: "rgba(255,255,255,0.8)", padding: "4px 6px", borderRadius: "4px" }}>

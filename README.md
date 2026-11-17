@@ -136,3 +136,49 @@ point at a self-hosted Jitsi instead if you have one.
 - Frontend behavior has no automated test suite yet; the backend has focused medication-monitor
   tests, run by CI with `python -m unittest discover -s tests` from `backend/`. For local frontend
   verification, use `npm run typecheck`, `npm run lint`, and `npm run build` from `frontend/`.
+
+## Private Home Plan videos
+
+Use a **private** Supabase Storage bucket named `progress-videos`. Set its
+allowed MIME type to `video/mp4` and its max file size to 12 MiB. Leave
+client access policies unset: the backend signs playback links only after
+checking the Firebase user's current student and activity access.
+
+Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the backend environment,
+install FFmpeg and ffprobe, then restart the backend. Use a dedicated Supabase
+project for this app. The service role key must never appear in the frontend
+or Git. No Firebase Storage subscription is needed. Clip metadata stays in
+Firestore; only the compressed MP4 goes to Supabase.
+
+In **Home Plan Bridge**, open an activity's **Progress and demonstration
+videos** section. The linked parent can upload a practice clip, and assigned
+therapists can upload demonstrations and leave feedback on practice clips.
+Inputs are limited to 250 MiB and 3 minutes; the app compresses them to at most
+12 MiB for private storage. Playback links expire after five minutes. The uploader can
+delete their clips. A daily backend sweep purges clips after 30 days. Set
+`PROGRESS_VIDEO_RETENTION_DAYS` in `backend/.env` to change that window.
+
+AI transcripts and summaries require `VIDEO_GEMINI_API_KEY` in the backend
+environment. `VIDEO_GEMINI_MODEL` defaults to `gemini-3.8-flash`. A parent must
+opt in per clip. After upload, the backend sends the compressed video to Gemini
+to transcribe speech, then sends only that transcript to Gemini for a
+therapist-facing summary. Both the transcript and summary appear on the
+therapist's activity view; the therapist can retry if generation fails. Gemini
+interactions use stateless requests. The summary is a draft for therapist review.
+Use staged clips for testing, and confirm consent, retention and provider
+data handling before enabling video or AI for real students.
+
+Release check with synthetic accounts: upload and replay as the linked
+parent and assigned therapist; confirm an unrelated account is denied.
+
+## Parent fee payments
+
+Parent payments use manual bank transfer. Configure `NEXT_PUBLIC_BANK_NAME`,
+`NEXT_PUBLIC_BANK_ACCOUNT_TITLE`, and `NEXT_PUBLIC_BANK_ACCOUNT_NUMBER` in
+`frontend/.env.local` to show the centre's payment instructions. The parent
+submits the transaction reference; this only creates a pending submission.
+An administrator must verify the transfer and record the payment in the fee
+ledger before the invoice becomes paid. Never put secret Supabase keys or
+Firebase admin credentials in these public frontend variables.
+Then verify feedback, playback expiration, deletion and optional AI failure
+recovery against the configured providers.

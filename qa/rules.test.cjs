@@ -1,7 +1,7 @@
 const { test, before, after } = require('node:test');
 const { readFileSync } = require('node:fs');
 const { initializeTestEnvironment, assertFails, assertSucceeds } = require('@firebase/rules-unit-testing');
-const { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, query, where, writeBatch } = require('firebase/firestore');
+const { doc, getDoc, setDoc, updateDoc, deleteDoc, getDocs, collection, query, where, writeBatch, serverTimestamp } = require('firebase/firestore');
 let env;
 const child = { name: 'Synthetic student', centerId: 'c1', parentId: 'p1', teacherId: 't1', therapistIds: ['h1'] };
 const linked = { studentId: 's1', centerId: 'c1', parentId: 'p1' };
@@ -141,6 +141,21 @@ test('guardians can query their own invoices and payments but not another family
     await assertSucceeds(getDocs(query(collection(dbOf('p1'),name),where('studentId','==','s1'),where('parentId','==','p1'))));
     await assertFails(getDocs(query(collection(dbOf('p2'),name),where('studentId','==','s1'),where('parentId','==','p1'))));
   }
+});
+
+test('parent can submit one bank transfer reference; only staff can mark invoice paid', async () => {
+  await env.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), 'invoices/invoice'), { ...linked, amount: 1000, status: 'pending' });
+  });
+  const invoice = doc(dbOf('p1'), 'invoices/invoice');
+  await assertSucceeds(updateDoc(invoice, {
+    transferSubmission: { reference: 'TX-12345', submittedBy: 'p1', submittedAt: serverTimestamp(), status: 'pending' },
+  }));
+  await assertFails(updateDoc(invoice, {
+    transferSubmission: { reference: 'ALTERED-12345', submittedBy: 'p1', submittedAt: serverTimestamp(), status: 'pending' },
+  }));
+  await assertFails(updateDoc(invoice, { status: 'paid' }));
+  await assertSucceeds(updateDoc(doc(dbOf('a1'), 'invoices/invoice'), { status: 'paid' }));
 });
 
 test('clinical edits and directory removal cannot bypass assignment or erase child history', async () => {

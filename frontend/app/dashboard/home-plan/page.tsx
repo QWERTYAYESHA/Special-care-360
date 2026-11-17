@@ -10,6 +10,7 @@ import {
   type HomePlanActivity,
   type HomePlanLog,
 } from "@/lib/teletherapy-api";
+import ProgressVideos from "@/components/home-plan/ProgressVideos";
 import ActivityThread from "@/components/home-plan/ActivityThread";
 import toast from "react-hot-toast";
 import {
@@ -205,8 +206,8 @@ export default function HomePlanPage() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
           {visible.map((activity) => (
+            <div key={activity.id}>
             <ActivityCard
-              key={activity.id}
               activity={activity}
               logs={logs}
               isParent={isParent}
@@ -215,6 +216,10 @@ export default function HomePlanPage() {
               onOpenThread={() => setThreadFor(activity)}
               onArchive={() => handleArchive(activity)}
             />
+            {(profile?.role === "parent" || profile?.role === "therapist") && (
+              <ProgressVideos studentId={activity.studentId} activityId={activity.id} role={profile.role} />
+            )}
+            </div>
           ))}
         </div>
       )}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { studentsDb, scopeOf, type StudentDoc } from "@/lib/firestore-api";
+import { studentsDb, billingDb, scopeOf, type StudentDoc } from "@/lib/firestore-api";
 import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import toast from "react-hot-toast";
@@ -28,6 +28,7 @@ interface Invoice {
   issued: string;
   status: "paid" | "pending" | "overdue";
   centerId: string;
+  transferSubmission?: { reference: string; submittedBy: string; status: "pending"; submittedAt?: unknown };
 }
 
 interface Payment {
@@ -52,6 +53,9 @@ export default function ParentFeesPage() {
   const [loading, setLoading] = useState(true);
   const [childrenError, setChildrenError] = useState(false);
   const [activeInvoice, setActiveInvoice] = useState<Invoice | null>(null);
+  const [transferReference, setTransferReference] = useState("");
+  const [submittingTransfer, setSubmittingTransfer] = useState(false);
+  const [showTransferForm, setShowTransferForm] = useState(false);
   
   const [invoiceErrorChildId, setInvoiceErrorChildId] = useState<string | null>(null);
   const [paymentsErrorChildId, setPaymentsErrorChildId] = useState<string | null>(null);
@@ -59,6 +63,20 @@ export default function ParentFeesPage() {
     selectedChildId &&
     (invoiceErrorChildId === selectedChildId || paymentsErrorChildId === selectedChildId)
   );
+
+  const submitTransfer = async () => {
+    if (!activeInvoice || !profile) return;
+    setSubmittingTransfer(true);
+    try {
+      await billingDb.submitBankTransfer(activeInvoice.id, transferReference, profile.uid);
+      setTransferReference("");
+      toast.success("Transfer reference sent. The centre will verify your payment.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not submit the transfer reference.");
+    } finally {
+      setSubmittingTransfer(false);
+    }
+  };
 
   // Load Parent's Children
   useEffect(() => {
@@ -336,9 +354,13 @@ export default function ParentFeesPage() {
 
               {/* Payment instructions */}
               <div style={{ padding: "12px", background: "rgba(61,79,107,0.04)", borderRadius: "8px", border: "1px solid rgba(61,79,107,0.08)", fontSize: "0.78rem", color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: "20px" }}>
-                <strong>Bank Transfer Instructions:</strong><br />
-                Al-Habib Bank · Account #1024-5589-32<br />
-                Please share transaction receipt with administrator.
+                <strong>Bank Transfer Instructions</strong><br />
+                {process.env.NEXT_PUBLIC_BANK_NAME && process.env.NEXT_PUBLIC_BANK_ACCOUNT_TITLE && process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER ? (
+                  <>{process.env.NEXT_PUBLIC_BANK_NAME} · {process.env.NEXT_PUBLIC_BANK_ACCOUNT_TITLE}<br />Account / IBAN: {process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER}<br /></>
+                ) : "Bank transfer details have not been configured. Please contact the centre administrator."}
+                {activeInvoice.transferSubmission?.status === "pending" && (
+                  <div style={{ marginTop: 8 }}><strong>Transfer submitted</strong> · Reference {activeInvoice.transferSubmission.reference}. Awaiting centre verification.</div>
+                )}
               </div>
 
               {/* Action bar */}
@@ -350,16 +372,24 @@ export default function ParentFeesPage() {
                 >
                   <Printer size={14} /> Print Invoice
                 </button>
-                {activeInvoice.status !== "paid" && (
+                {activeInvoice.status !== "paid" && !activeInvoice.transferSubmission && (
                   <button
                     className="btn-primary"
-                    onClick={() => toast.success("Payment options integration pending bank verification.")}
+                    onClick={() => { if (process.env.NEXT_PUBLIC_BANK_NAME && process.env.NEXT_PUBLIC_BANK_ACCOUNT_TITLE && process.env.NEXT_PUBLIC_BANK_ACCOUNT_NUMBER) setShowTransferForm(v => !v); else toast.error("Bank transfer details are not configured yet."); }}
                     style={{ flex: 2, padding: "10px", fontSize: "0.82rem", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
                   >
-                    <CreditCard size={14} /> Pay Now
+                    <CreditCard size={14} /> {showTransferForm ? "Cancel" : "Submit transfer reference"}
                   </button>
                 )}
               </div>
+              {showTransferForm && activeInvoice.status !== "paid" && !activeInvoice.transferSubmission && (
+                <form style={{ marginTop: 12 }} onSubmit={event => { event.preventDefault(); void submitTransfer(); }}>
+                  <label style={{ display: "block", fontSize: "0.82rem", fontWeight: 600 }}>Bank transaction reference
+                    <input className="glass-input" minLength={4} maxLength={80} required value={transferReference} disabled={submittingTransfer} onChange={event => setTransferReference(event.target.value)} placeholder="Enter the reference from your receipt" style={{ display: "block", width: "100%", marginTop: 6 }} />
+                  </label>
+                  <button className="btn-primary" type="submit" disabled={submittingTransfer || transferReference.trim().length < 4} style={{ marginTop: 10 }}>{submittingTransfer ? "Submitting…" : "Send for verification"}</button>
+                </form>
+              )}
 
             </div>
           )}
