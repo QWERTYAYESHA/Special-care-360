@@ -21,9 +21,6 @@ async def get_verified_identity(authorization: Optional[str] = Header(None)) -> 
 
 async def get_current_user(
     authorization: Optional[str] = Header(None),
-    x_user_role: Optional[str] = Header(None),
-    x_user_center_id: Optional[str] = Header(None),
-    x_user_name: Optional[str] = Header(None),
 ) -> dict:
     identity = await get_verified_identity(authorization)
     uid = identity["uid"]
@@ -31,36 +28,25 @@ async def get_current_user(
     reference = get_db().collection("users").document(uid)
     snapshot = await asyncio.to_thread(reference.get)
     
-    if snapshot.exists:
-        profile = snapshot.to_dict() or {}
-        user = {key: profile.get(key) for key in ("role", "status", "centerId", "name")}
-        user.update(identity)
-        # Ensure status and centerId defaults if not present
-        if not user.get("status"):
-            user["status"] = "approved"
-        if not user.get("centerId"):
-            user["centerId"] = "center-001"
-        if x_user_role:
-            user["role"] = x_user_role
-        if x_user_center_id:
-            user["centerId"] = x_user_center_id
-        if x_user_name:
-            user["name"] = x_user_name
-        return user
+    if not snapshot.exists:
+        raise HTTPException(403, "An approved account profile is required")
 
-    # If backend is running in local dev/mock mode or profile is in real firestore
-    # synthesize therapist user from token so local dev functions without blocking
-    claims = identity.get("claims", {})
-    role = x_user_role or claims.get("role") or "teacher"
-    center_id = x_user_center_id or claims.get("centerId") or "center-001"
-    name = x_user_name or claims.get("name") or ("Teacher" if role == "teacher" else "Therapist")
+    profile = snapshot.to_dict() or {}
+    role = profile.get("role")
+    status = profile.get("status")
+    center_id = profile.get("centerId")
+    if (profile.get("uid") != uid or status != "approved"
+            or role not in ("admin", "teacher", "therapist", "parent")
+            or not isinstance(center_id, str) or not center_id.strip()):
+        raise HTTPException(403, "An approved account profile is required")
+
     return {
         "uid": uid,
         "email": identity.get("email", ""),
         "role": role,
-        "status": "approved",
+        "status": status,
         "centerId": center_id,
-        "name": name
+        "name": profile.get("name") or "",
     }
 
 

@@ -17,9 +17,7 @@ def authorize_student_data(user, student):
     therapists = student.get("therapistIds", [])
     teacher_assigned = (
         student.get("teacherId") == uid
-        or not student.get("teacherId")
         or (student.get("teacherIds") and uid in student.get("teacherIds"))
-        or role == "teacher"
     )
     allowed = (role == "admin" or
                (role == "parent" and student.get("parentId") == uid) or

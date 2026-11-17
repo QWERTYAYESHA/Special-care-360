@@ -43,18 +43,11 @@ def save_observation(db, body, user):
 
     # Transactional logic for observation logging
     def commit(tx):
-        student = student_ref.get(transaction=tx).to_dict() or {}
-        if not student:
-            student = {
-                "id": body.studentId,
-                "name": body.studentName or "Student",
-                "centerId": body_center or user_center or "center-001",
-                "teacherId": user.get("uid"),
-                "parentId": "parent-001",
-                "therapistIds": [user.get("uid")],
-            }
-        else:
-            authorize_student_data(user, student)
+        student_snapshot = student_ref.get(transaction=tx)
+        if not student_snapshot.exists:
+            raise HTTPException(404, "Student not found")
+        student = student_snapshot.to_dict() or {}
+        authorize_student_data(user, student)
         old = obs_ref.get(transaction=tx)
         if old.exists:
             data = old.to_dict()
@@ -64,11 +57,7 @@ def save_observation(db, body, user):
         plan = plan_ref.get(transaction=tx).to_dict() or {}
         goal = next((g for g in plan.get("achievedGoals", []) if g.get("id") == body.goalId), None)
         if not goal:
-            goal = {
-                "id": body.goalId,
-                "title": body.goalTitle or "Goal",
-                "achievedAt": body.baselineMasteryDate or now.split("T")[0],
-            }
+            raise HTTPException(404, "Mastered goal not found")
         baseline = goal.get("achievedAt") or ""
         state = state_ref.get(transaction=tx).to_dict() or {}
         if state.get("baseline") != baseline:

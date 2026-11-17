@@ -76,6 +76,12 @@ class APISecurityTests(unittest.TestCase):
                 with self.subTest(path=path):
                     self.assertEqual(self.client.request(method, path, json=body).status_code, 401)
 
+    def test_client_headers_cannot_grant_role_or_change_centre(self):
+        self.uid = 't1'
+        body = {'name':'Test', 'dob':'2020-01-01', 'diagnosis':'Test', 'centerId':'c1', 'parentId':'p1', 'enrollmentDate':'2026-10-06'}
+        response = self.client.post('/api/students', headers={**self.headers, 'x-user-role': 'admin', 'x-user-center-id': 'c2'}, json=body)
+        self.assertEqual(response.status_code, 403, response.text)
+
     def test_child_scoped_reads_deny_other_family_class_therapist_and_center(self):
         paths = ['/api/students/s1', '/api/students/s1/medical', '/api/students/s1/careplan', '/api/daily-care/s1/history', '/api/daily-care/s1/2026-10-06', '/api/abc/incidents/s1', '/api/abc/patterns/s1', '/api/abc/heatmap/s1', '/ai-insights/abc/s1', '/api/teletherapy/token?sessionId=session']
         for uid in ['p2', 't2', 'h2']:

@@ -1532,14 +1532,7 @@ export const milestoneObservationsDb = {
     pendingObservations.set(key, requestId);
     const response = await api.post("/api/regression/observations", {
       ...observation, requestId,
-    }, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "x-user-role": "teacher",
-        "x-user-center-id": observation.centerId,
-        "x-user-name": observation.observedByName,
-      }
-    });
+    }, { headers: { Authorization: `Bearer ${token}` } });
     pendingObservations.delete(key);
     const responseAlert = parseRegressionAlert((response.data as { alert?: unknown } | undefined)?.alert);
     if (responseAlert) {
