@@ -5,7 +5,6 @@ import toast from "react-hot-toast";
 import { Target, Save, BrainCircuit, Sparkles, Link2, Check, RefreshCw } from "lucide-react";
 import { studentsDb } from "@/lib/firestore-api";
 import { useAuth } from "@/lib/auth-context";
-import { getIdToken } from "@/lib/firebase";
 import ReactMarkdown from "react-markdown";
 
 const STATUS_OPTIONS = ["In Progress", "Mastered", "Regressed"] as const;
@@ -18,7 +17,7 @@ const STATUS_STYLES: Record<string, string> = {
 interface Props { studentId: string; carePlan: CarePlan; canEdit: boolean; onChange?: (data: CarePlan) => void; }
 
 export default function CarePlanTab({ studentId, carePlan: initial, canEdit, onChange }: Props) {
-  const { profile } = useAuth();
+  const { profile, getIdToken } = useAuth();
   const isTherapist = profile?.role === "therapist";
   const [goals, setGoals] = useState<IEPGoal[]>((initial?.goals || []).filter(goal => goal.status !== "Achieved"));
   const [version, setVersion] = useState(initial?.version ?? 0);
