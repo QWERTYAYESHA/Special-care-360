@@ -8,182 +8,218 @@
 
 ---
 
-## HOW OUR AI SUGGESTION ENGINE WORKS (Technical & Clinical Grounding)
-Our backend code ([backend/routers/ai_insights.py](file:///C:/Users/HP/Downloads/fyp/backend/routers/ai_insights.py)) handles both:
-1. **Single-Trigger Focus:** Identifying an acute high-priority incident (e.g. Life-safety elopement or 45% motor drop).
-2. **Multi-Incident Cluster Synthesis (Pattern Correlation):** When multiple interrelated ABC logs exist across different settings (classroom, cafeteria, therapy room), the AI synthesizes all triggers into a comprehensive SMART goal with **individual milestones directly targeting each specific logged incident**.
+## 10 EVALUATION CASE STUDIES (WITH COMPLETE A-B-C DETAILS FOR EVERY INCIDENT)
 
 ---
 
-## 10 EVALUATION CASE STUDIES (Single-Trigger & Multi-Incident Clusters)
+### CASE 1 (DUAL-INCIDENT CLUSTER): Ahmed Hassan (student-001 in Database)
+* **Clinical Profile:** Age 11 (DOB: 2015-03-12) | Diagnosis: Autism Spectrum Disorder (ASD), Active Seizure Protocol (Place on side, do not restrain, call nurse), Peanut Allergy.
+* **INCIDENT 1 (Auditory Overload Trigger):**
+  * **Antecedent (A):** Loud announcement blasted through classroom intercom speaker unexpectedly.
+  * **Behavior (B):** Covered both ears tightly, screamed loudly, and started rocking vigorously (Severity: 3/5, Duration: 8 mins, Location: Classroom A).
+  * **Consequence (C):** Teacher escorted Ahmed to quiet sensory corner until crying subsided.
+* **INCIDENT 2 (Unannounced Transition Trigger):**
+  * **Antecedent (A):** Teacher announced sudden switch from drawing activity to math desk work without advance visual warning.
+  * **Behavior (B):** Swept drawing materials off table, threw crayons onto floor, and refused to move (Severity: 4/5, Duration: 15 mins, Location: Classroom A).
+  * **Consequence (C):** Staff provided one-on-one verbal calming prompts and presented a visual timer.
+* **AI Unified SMART Goal (Synthesizes Both Incidents):**  
+  *"In 3 months, when loud intercom announcements or unexpected classroom transitions occur, Ahmed will independently don noise-cancelling headphones or follow a personal visual schedule, reducing disruptive screaming/throwing meltdowns from 4 times/week to 1 time/week."*
+* **3 Sequential Milestones (Directly Mapped to Incident 1 & Incident 2):**
+  1. **[Directly Solves Incident 1]:** Put on noise-cancelling headphones within 30 seconds of an intercom alarm with minimal verbal cueing.
+  2. **[Directly Solves Incident 2]:** Check and follow an individualized 3-step visual picture transition schedule when switching classroom tasks.
+  3. **[Generalization across settings]:** Present a visual 'Quiet Card' to staff to take a calm 2-minute break in 4 out of 5 distress situations.
+* **Correlation Metrics:** **Multi-Pillar Sensory & Transition (Pillars 1 & 2)** | **Correlation Match: 93%**  
+* **Why AI Suggested This:** Connects two distinct recurring triggers (auditory volume & transition rigidity) into a unified self-regulation protocol that honors seizure safety constraints.
 
 ---
 
-### CASE 1 (MULTI-INCIDENT CLUSTER): Ahmed Hassan (student-001 in Database)
-* **Diagnosis:** Autism Spectrum Disorder (ASD), Active Seizure Protocol (Place on side, do not restrain, call nurse), Peanut Allergy.
-* **MULTIPLE ABC INCIDENTS LOGGED (Exact Database Cluster):**
-  * **Incident A (Auditory Overload):** "Loud announcement on intercom" → Covered ears, started screaming (Severity: 3/5, Classroom A).
-  * **Incident B (Unannounced Transition):** "Activity changed without warning" → Threw materials off desk, floor tantrum (Severity: 4/5, Classroom A).
-  * **Incident C (Cafeteria Crowding):** "Crowded noisy lunch hall" → High-distress rocking, sensory breakdown (Severity: 4/5, Cafeteria).
-* **AI Unified SMART Goal (Synthesizes All 3 Incidents):**  
-  *"In 3 months, across classroom transitions, auditory alarms, and cafeteria environments, Ahmed will independently utilize sensory regulation tools and visual schedules, reducing multi-environment distress meltdowns from 5 times/week to 1 time/week."*
-* **3 Sequential Milestones (Each Directly Solves 1 Specific Logged Incident):**
-  1. **[Directly Targets Incident A - Intercom]:** Don noise-cancelling headphones within 30 seconds of an intercom alarm with teacher guidance.
-  2. **[Directly Targets Incident B - Unannounced Transition]:** Check and follow a personal 4-step visual picture schedule before classroom activity changes.
-  3. **[Directly Targets Incident C - Crowded Cafeteria]:** Transition calmly to a designated low-sensory cafeteria corner during lunch using a sensory break card.
-* **Correlation Metrics:** **Multi-Pillar Sensory & Transition (Pillars 1 & 2)** | **Correlation Match: 94%**  
-* **Why AI Suggested This:** Aggregates a 3-incident cluster into one holistic IEP goal where each milestone directly resolves one observed environmental trigger without compromising seizure safety.
+### CASE 2 (DUAL-INCIDENT CLUSTER): Sara Ahmed (student-002 in Database)
+* **Clinical Profile:** Age 10 (DOB: 2016-07-24) | Diagnosis: ADHD (Combined Inattentive & Hyperactive-Impulsive).
+* **INCIDENT 1 (Sedentary Academic Fatigue):**
+  * **Antecedent (A):** Continuous desk writing assignment lasting longer than 10 minutes.
+  * **Behavior (B):** Tipped chair back, got out of seat, wandered around classroom, and interrupted peers (Severity: 2/5, Duration: 5 mins, Location: Classroom B).
+  * **Consequence (C):** Teacher gave a 1-minute movement break then verbally prompted her to resume task.
+* **INCIDENT 2 (Environmental Sensory Distraction):**
+  * **Antecedent (A):** Desk positioned adjacent to classroom window overlooking active playground during independent math worksheet.
+  * **Behavior (B):** Tapped pencil loudly on desk, stared outdoors, and refused to begin worksheet (Severity: 2/5, Duration: 8 mins, Location: Classroom B).
+  * **Consequence (C):** Teacher moved desk orientation away from window and repeated instructions.
+* **AI Unified SMART Goal (Synthesizes Both Incidents):**  
+  *"In 3 months, during structured desk activities, Sara will sustain seated on-task attention for 15 continuous minutes using an active sensory cushion, window visual shielding, and a visual sand timer in 4 of 5 sessions."*
+* **3 Sequential Milestones (Directly Mapped to Incident 1 & Incident 2):**
+  1. **[Directly Solves Incident 1]:** Maintain seated engagement on a dynamic wobble balance cushion utilizing a 10-minute visual sand timer for desk work.
+  2. **[Directly Solves Incident 2]:** Utilize a silent handheld tactile fidget tool at an interior-facing desk to complete 1 worksheet without vocal or pencil tapping.
+  3. **[Generalization across settings]:** Proactively display a 'Movement Pass' to request a 1-minute scheduled motor break instead of wandering off-seat.
+* **Correlation Metrics:** **Behavioral & Attention Regulation (Pillar 2)** | **Correlation Match: 89%**  
+* **Why AI Suggested This:** Targets both internal motor restlessness (Incident 1) and external visual distraction (Incident 2) through physical accommodations without punitive disciplinary action.
 
 ---
 
-### CASE 2 (MULTI-INCIDENT CLUSTER): Sara Ahmed (student-002 in Database)
-* **Diagnosis:** ADHD (Combined Inattentive & Hyperactive-Impulsive).
-* **MULTIPLE ABC INCIDENTS LOGGED (Exact Database Cluster):**
-  * **Incident A (Academic Fatigue):** "Writing worksheet exceeding 10 minutes" → Left chair, wandered around classroom (Severity: 2/5, Classroom B).
-  * **Incident B (Environmental Distraction):** "Seated near window with outdoor movement" → Loud pencil tapping, refused worksheet (Severity: 2/5, Classroom B).
-  * **Incident C (Unstructured Waiting Line):** "Waiting in line for lunch" → Pushed peer to get ahead, shouting (Severity: 3/5, Cafeteria).
-* **AI Unified SMART Goal (Synthesizes All 3 Incidents):**  
-  *"In 3 months, during sedentary desk work and unstructured transition lines, Sara will maintain on-task engagement and impulse control using sensory seating, visual timers, and structured waiting strategies in 80% of opportunities."*
-* **3 Sequential Milestones (Each Directly Solves 1 Specific Logged Incident):**
-  1. **[Directly Targets Incident A - 10-Min Fatigue]:** Remain seated on an active balance cushion for 15 minutes of individual work utilizing a 10-minute visual sand timer.
-  2. **[Directly Targets Incident B - Window Distraction]:** Utilize a silent desk-attached fidget tool to complete 1 worksheet at a desk oriented away from outdoor windows.
-  3. **[Directly Targets Incident C - Lunch Line Pushing]:** Stand in line holding personal space boundaries using a visual floor spot without pushing peers.
-* **Correlation Metrics:** **Behavioral & Attention Regulation (Pillar 2)** | **Correlation Match: 91%**  
-* **Why AI Suggested This:** Synthesizes inattention, environmental distraction, and waiting impulsivity into a practical 3-step self-regulation plan.
+### CASE 3 (DUAL-INCIDENT CLUSTER): Omar Malik (student-003 in Database)
+* **Clinical Profile:** Age 12 (DOB: 2014-11-05) | Diagnosis: Down Syndrome, Articulation & Expressive Speech Delay.
+* **INCIDENT 1 (Peer Turn-Taking Conflict):**
+  * **Antecedent (A):** Peer picked up shared play-dough sculpting tool that Omar wanted during therapy.
+  * **Behavior (B):** Pushed peer's arm forcefully, vocalized in distress, and grabbed tool (Severity: 2/5, Duration: 3 mins, Location: Therapy Room).
+  * **Consequence (C):** Therapist redirected Omar to an alternate sculpting tool and verbally modeled sharing.
+* **INCIDENT 2 (Activity Transition & Pack-Up Resistance):**
+  * **Antecedent (A):** Teacher instructed cleanup time and placed toy storage box on carpet.
+  * **Behavior (B):** Threw toy box across floor, shouted 'No!', and flopped onto carpet (Severity: 3/5, Duration: 6 mins, Location: Classroom A).
+  * **Consequence (C):** Teacher provided hand-over-hand physical guidance to put away 3 toys, followed by verbal praise.
+* **AI Unified SMART Goal (Synthesizes Both Incidents):**  
+  *"In 3 months, when wanting a shared object or prompted to complete activity cleanups, Omar will use his AAC speech tablet or hand a 'My Turn / Help' picture card, reducing physical pushing and throwing in 80% of situations."*
+* **3 Sequential Milestones (Directly Mapped to Incident 1 & Incident 2):**
+  1. **[Directly Solves Incident 1]:** Tap 'Turn' icon on speech tablet or hand 'My Turn' PECS card to peer/staff when desiring a shared object.
+  2. **[Directly Solves Incident 2]:** Follow a 3-step 'First Pack-Up, Then Snack' visual strip to put away 3 toys cooperatively without throwing.
+  3. **[Generalization across settings]:** Wait patiently for 30 seconds after making a picture request before receiving desired item in 4 of 5 trials.
+* **Correlation Metrics:** **Clinical & Expressive Communication (Pillars 1 & 2)** | **Correlation Match: 91%**  
+* **Why AI Suggested This:** Solves the root frustration (expressive articulation barrier) behind both peer aggression (Incident 1) and task avoidance (Incident 2) using multi-modal AAC tools.
 
 ---
 
-### CASE 3: Omar Malik (student-003 in Database)
-* **Diagnosis:** Down Syndrome, Moderate Articulation & Speech Delay.
-* **1 Specific Primary Input Logged:**  
-  * **Antecedent:** Peer took drawing crayon during group art.  
-  * **Behavior:** Physically pushed peer and cried loudly (Severity: 3/5).  
-  * **Consequence:** Crayon taken away by teacher.
-* **AI Suggested SMART Goal (Direct Focus on this 1 Input):**  
-  *"In 3 months, when Omar wants a shared toy/crayon, he will use his AAC speech tablet or hand a 'My Turn' picture card in 80% of situations."*
-* **3 Sequential Milestones:**
-  1. Touch 'Turn' button on speech tablet with hand guidance during therapy.
-  2. Hand 'My Turn' picture card to teacher when wanting a shared object.
-  3. Wait patiently for 30 seconds after asking before getting the toy in 4 of 5 trials.
-* **Correlation Metrics:** **Clinical & Speech Delay (Pillars 1 & 2)** | **Correlation Match: 90%**  
-* **Why AI Suggested This:** Teaches non-verbal communication replacement to eliminate physical pushing caused by speech frustration.
-
----
-
-### CASE 4: Zara Khan (student-004 in Database)
-* **Diagnosis:** Cerebral Palsy (Fine Motor Limitation), Wheelchair User.
-* **1 Specific Primary Input Logged (Active Regression Alert):**  
-  * **Metric Drop:** Self-feeding fork & spoon grasp proficiency dropped from **80% to 35%** baseline after extended school break.
-* **AI Suggested SMART Goal (Direct Focus on this 1 Input):**  
-  *"In 6 months, Zara will independently eat snack/lunch using an adaptive ergonomic spoon for 15 minutes, improving grasp proficiency from 35% to 75%."*
-* **3 Sequential Milestones:**
-  1. Practice hand-grasp squeeze exercise with soft therapy putty for 3 minutes before lunch.
-  2. Scoop 5 bites of food independently using an angled wide-grip adaptive spoon with less than 2 drops.
-  3. Complete 75% of meal independently with standby supervision.
+### CASE 4 (DUAL-INCIDENT CLUSTER): Zara Khan (student-004 in Database)
+* **Clinical Profile:** Age 9 (DOB: 2017-04-19) | Diagnosis: Cerebral Palsy, Wheelchair User, Fine Motor Palmar Limitation.
+* **Active Regression Metric:** Utensil self-feeding proficiency declined from **80% baseline to 35%** following school break.
+* **INCIDENT 1 (Feeding Utensil Frustration):**
+  * **Antecedent (A):** Struggled to maintain grip on standard cafeteria spoon while eating rice.
+  * **Behavior (B):** Threw spoon onto cafeteria table, cried, and vocalized in anger (Severity: 3/5, Duration: 5 mins, Location: Cafeteria).
+  * **Consequence (C):** Staff replaced utensil with thick-handled spoon and provided hand-over-hand feeding support.
+* **INCIDENT 2 (Fine Motor Task Failure):**
+  * **Antecedent (A):** Inability to insert wooden puzzle piece due to finger coordination slip during occupational therapy.
+  * **Behavior (B):** Pushed puzzle board off desk, vocal screeching, and stiffened upper body (Severity: 3/5, Duration: 4 mins, Location: Therapy Room).
+  * **Consequence (C):** Therapist assisted with puzzle placement and delivered verbal encouragement.
+* **AI Unified SMART Goal (Synthesizes Both Incidents):**  
+  *"In 6 months, Zara will independently eat snack/lunch using an angled ergonomic adaptive spoon and manipulate therapy puzzle objects for 15 minutes, rehabilitating grasp proficiency from 35% to 75%."*
+* **3 Sequential Milestones (Directly Mapped to Incident 1 & Incident 2):**
+  1. **[Directly Solves Incident 1]:** Scoop 5 bites of food independently using an angled wide-grip adaptive spoon with less than 2 utensil drops.
+  2. **[Directly Solves Incident 2]:** Practice 3 minutes of finger flexor squeeze exercises with therapeutic putty before attempting puzzle tasks.
+  3. **[Generalization across settings]:** Complete 75% of lunch meal independently with standby supervision, eliminating utensil-throwing episodes.
 * **Correlation Metrics:** **Skill Regression Remediation (Pillar 3 Priority)** | **Correlation Match: 95%**  
-* **Why AI Suggested This:** Mathematically targets the 45% skill regression drop using Occupational Therapy adaptive equipment.
+* **Why AI Suggested This:** Targets the documented 45% motor drop while directly eliminating the frustration-induced throwing behaviors seen in both dining and therapy settings.
 
 ---
 
-### CASE 5: Sensory Overload (Tactile / Food Texture Aversion)
-* **Diagnosis:** Autism Spectrum Disorder, Severe Peanut Allergy.
-* **1 Specific Primary Input Logged:**  
-  * **Antecedent:** Mixed-texture lunch served (rice with lentils/sauce).  
-  * **Behavior:** Gagging, pushing plate off desk, refused meal (Severity: 3/5).  
-  * **Consequence:** Skipped entire meal.
-* **AI Suggested SMART Goal (Direct Focus on this 1 Input):**  
-  *"In 4 months, the child will tolerate smelling, touching, and tasting 2 new non-allergenic food textures during snack time without distress."*
-* **3 Sequential Milestones:**
-  1. Tolerate new safe, non-allergenic food resting on plate for 10 minutes.
-  2. Touch the food texture using a spoon or fork for 1 minute.
-  3. Lick or take 1 small bite on 3 separate days.
-* **Correlation Metrics:** **Sensory & Allergen Safety (Pillars 1 & 2)** | **Correlation Match: 89%**  
-* **Why AI Suggested This:** Gentle SOS desensitization that strictly obeys peanut allergy restriction (Code Line 346 safety rule).
+### CASE 5 (DUAL-INCIDENT CLUSTER): Sensory Overload & Food Selectivity
+* **Clinical Profile:** Age 7 | Diagnosis: Autism Spectrum Disorder, Severe Anaphylactic Peanut Allergy.
+* **INCIDENT 1 (Mixed Wet Texture Distress):**
+  * **Antecedent (A):** Lunch served containing mixed wet rice and lentil puree.
+  * **Behavior (B):** Gagged visibly, pushed food tray off desk, and turned entire body away from food (Severity: 3/5, Duration: 10 mins, Location: Dining Room).
+  * **Consequence (C):** Meal cleared away; child skipped lunch.
+* **INCIDENT 2 (Cold Smooth Texture Distress):**
+  * **Antecedent (A):** Cold dairy-free strawberry yogurt texture presented in small bowl.
+  * **Behavior (B):** Covered mouth tightly with both hands, vocalized distress sounds, and began crying (Severity: 2/5, Duration: 6 mins, Location: Classroom).
+  * **Consequence (C):** Staff provided a familiar dry cracker and comforted child.
+* **AI Unified SMART Goal (Synthesizes Both Incidents):**  
+  *"In 4 months, using a 3-stage SOS gentle sensory food desensitization protocol, the child will tolerate smelling, touching, and tasting 2 new non-allergenic food textures during snack time with zero gagging or plate-pushing."*
+* **3 Sequential Milestones (Directly Mapped to Incident 1 & Incident 2):**
+  1. **[Directly Solves Incident 1]:** Tolerate a new safe food texture resting on a discovery plate 6 inches away for 10 minutes without pushing plate.
+  2. **[Directly Solves Incident 2]:** Touch and manipulate novel smooth or wet food consistency using a fork, spoon, or clean fingers for 1 minute.
+  3. **[Generalization across settings]:** Lick or take 1 small trial bite of a non-allergenic new food texture on 3 separate therapy days.
+* **Correlation Metrics:** **Sensory & Allergen Safety (Pillars 1 & 2)** | **Correlation Match: 90%**  
+* **Why AI Suggested This:** Solves aversion across multiple food consistencies (wet puree & smooth cream) while strictly enforcing allergen protection (Line 346 safety rule).
 
 ---
 
-### CASE 6: Elopement Risk (Running out of Classroom)
-* **Diagnosis:** Autism Spectrum Disorder Level 3 (Non-verbal, Minimal Danger Awareness).
-* **1 Specific Primary Input Logged:**  
-  * **Antecedent:** Classroom door opened for recess transition.  
-  * **Behavior:** Bolted into corridor toward exit staircase (Severity: 5/5 Emergency).  
-  * **Consequence:** Physical escort back to room by staff.
-* **AI Suggested SMART Goal (Direct Focus on this 1 Input):**  
-  *"In 3 months, during open door transitions, the child will stop at visual threshold floor markers and hold a transition ring with 0 escape incidents."*
-* **3 Sequential Milestones:**
-  1. Stop feet at the red visual 'STOP' line painted on the doorway floor upon prompt.
-  2. Hold teacher's transition ring before stepping into corridor.
-  3. Walk from room to playground beside staff without running away in 9 of 10 opportunities.
-* **Correlation Metrics:** **Immediate Life Safety (Pillar 2)** | **Correlation Match: 96%**  
-* **Why AI Suggested This:** Focuses on immediate physical safety using high-contrast visual threshold boundaries.
+### CASE 6 (DUAL-INCIDENT CLUSTER): Elopement & Portal Safety
+* **Clinical Profile:** Age 6 | Diagnosis: Autism Spectrum Disorder Level 3 (Non-verbal, Minimal Danger Awareness).
+* **INCIDENT 1 (Classroom Exit Flight):**
+  * **Antecedent (A):** Classroom door opened by aide to allow students out for recess transition.
+  * **Behavior (B):** Bolted instantly into hallway toward main exit staircase at full speed (Severity: 5/5 Emergency, Duration: 2 mins, Location: Corridor).
+  * **Consequence (C):** Teacher intercepted child physically at stair landing and guided back.
+* **INCIDENT 2 (Gymnasium Portal Flight):**
+  * **Antecedent (A):** Gym double-doors unlatched at the conclusion of physical recreation.
+  * **Behavior (B):** Sprinted away from class lineup toward parking lot exit door (Severity: 5/5 Emergency, Duration: 2 mins, Location: Gym Exit).
+  * **Consequence (C):** Physical education teacher intercepted child and held escort tether.
+* **AI Unified SMART Goal (Synthesizes Both Incidents):**  
+  *"In 3 months, during all open-door transitions across classroom and gym settings, the child will halt at visual floor boundary markers and hold an escort ring, eliminating unescorted elopements to 0."*
+* **3 Sequential Milestones (Directly Mapped to Incident 1 & Incident 2):**
+  1. **[Directly Solves Incident 1]:** Halt feet on a high-contrast red 'STOP' floor line taped at classroom doorway upon visual cue.
+  2. **[Directly Solves Incident 2]:** Grasp and hold teacher's escort ring tether before stepping through gym exit doors.
+  3. **[Generalization across settings]:** Walk alongside staff from any classroom/gym portal to playground holding escort handle in 9 of 10 opportunities.
+* **Correlation Metrics:** **Emergency Life Safety (Pillar 2)** | **Correlation Match: 96%**  
+* **Why AI Suggested This:** Resolves repeated portal flight emergencies across both classroom and gym exits through environmental boundary conditioning.
 
 ---
 
-### CASE 7: Exam & Worksheet Anxiety
-* **Diagnosis:** Pediatric Generalized Anxiety Disorder, Dyscalculia.
-* **1 Specific Primary Input Logged:**  
-  * **Antecedent:** Timed math evaluation quiz distributed.  
-  * **Behavior:** Rapid hyperventilation, crumbling test paper, crying (Severity: 3/5).  
-  * **Consequence:** Sent to nurse office.
-* **AI Suggested SMART Goal (Direct Focus on this 1 Input):**  
-  *"In 3 months, when given evaluation worksheets, the student will use 3 deep breaths and an untimed break pass, starting the task within 3 minutes in 80% of situations."*
-* **3 Sequential Milestones:**
-  1. Identify anxiety level using a 5-point visual thermometer chart (Red = Overwhelmed).
-  2. Practice 3 slow deep diaphragmatic breaths before touching the test pencil.
-  3. Attempt 5 evaluation questions on an untimed, chunked test sheet calmly.
-* **Correlation Metrics:** **Affective Dysregulation (Pillar 2)** | **Correlation Match: 87%**  
-* **Why AI Suggested This:** Combines CBT calming techniques with untimed testing accommodations to reduce performance panic.
+### CASE 7 (DUAL-INCIDENT CLUSTER): Academic Evaluation & Math Anxiety
+* **Clinical Profile:** Age 14 | Diagnosis: Pediatric Generalized Anxiety Disorder, Dyscalculia.
+* **INCIDENT 1 (Timed Written Quiz Distress):**
+  * **Antecedent (A):** Timed 10-minute mathematics evaluation sheet placed face-down on student's desk.
+  * **Behavior (B):** Rapid hyperventilation, crumbled evaluation paper, and sobbed with head on desk (Severity: 3/5, Duration: 12 mins, Location: Classroom C).
+  * **Consequence (C):** Escorted to nurse office for calming breathing.
+* **INCIDENT 2 (Public Board Work Panic):**
+  * **Antecedent (A):** Teacher asked student to stand and solve an equation on the front whiteboard.
+  * **Behavior (B):** Shaking hands, froze in aisle, and whispered 'I can't' while crying (Severity: 2/5, Duration: 5 mins, Location: Classroom C).
+  * **Consequence (C):** Teacher allowed student to return to desk and assigned peer helper.
+* **AI Unified SMART Goal (Synthesizes Both Incidents):**  
+  *"In 3 months, when presented with written math assessments or board tasks, the student will execute diaphragmatic breathing and use an untimed break pass, initiating academic work within 3 minutes in 80% of situations."*
+* **3 Sequential Milestones (Directly Mapped to Incident 1 & Incident 2):**
+  1. **[Directly Solves Incident 1]:** Execute 3 slow box-breathing cycles and utilize an untimed break voucher before beginning written test sheets.
+  2. **[Directly Solves Incident 2]:** Practice solving 2 math problems on a private handheld dry-erase board at desk instead of front public board.
+  3. **[Generalization across settings]:** Complete 5 evaluation questions on an untimed, chunked sheet calmly without tearing paper.
+* **Correlation Metrics:** **Affective Regulation & Accommodation (Pillar 2)** | **Correlation Match: 88%**  
+* **Why AI Suggested This:** Combines physiological CBT down-regulation for written panic (Incident 1) with low-visibility accommodations for public performance anxiety (Incident 2).
 
 ---
 
-### CASE 8: Proprioceptive Sensory Seeking (Rough Play)
-* **Diagnosis:** Sensory Processing Disorder (High Physical Energy), ADHD.
-* **1 Specific Primary Input Logged:**  
-  * **Antecedent:** Morning circle time gathering on carpet.  
-  * **Behavior:** Crashing body into classmates, rolling aggressively on floor (Severity: 3/5).  
-  * **Consequence:** Removed from circle.
-* **AI Suggested SMART Goal (Direct Focus on this 1 Input):**  
-  *"In 3 months, the student will complete 5 minutes of 'heavy-work' muscle exercises before circle time to remain seated calmly on a wobble cushion for 12 minutes."*
-* **3 Sequential Milestones:**
-  1. Push a 6-lb weighted therapy ball across gym for 3 minutes before class starts.
-  2. Sit on an active balance cushion for 10 minutes during group story without crashing into peers.
-  3. Squeeze a classroom resistance stress dough when feeling the urge to jump.
-* **Correlation Metrics:** **Sensory Regulation (Pillars 1 & 2)** | **Correlation Match: 91%**  
-* **Why AI Suggested This:** Proactively provides deep muscle/joint input before seated demands so the child does not collide with peers.
+### CASE 8 (DUAL-INCIDENT CLUSTER): Proprioceptive Craving & Body Crashing
+* **Clinical Profile:** Age 8 | Diagnosis: Sensory Processing Disorder (High Physical Energy), ADHD.
+* **INCIDENT 1 (Morning Circle Time Collision):**
+  * **Antecedent (A):** Transition to quiet seated story reading on morning floor carpet.
+  * **Behavior (B):** Threw body horizontally into two adjacent classmates, rolling and crashing (Severity: 3/5, Duration: 4 mins, Location: Classroom Carpet).
+  * **Consequence (C):** Teacher separated student from group and had him sit on perimeter chair.
+* **INCIDENT 2 (Hallway Lineup Shoving):**
+  * **Antecedent (A):** Stationary hallway waiting lineup before going outside.
+  * **Behavior (B):** Shoved shoulders violently against peers in front and rammed back into corridor wall (Severity: 3/5, Duration: 3 mins, Location: Hallway).
+  * **Consequence (C):** Aide held student's hands and moved him to the back of the line.
+* **AI Unified SMART Goal (Synthesizes Both Incidents):**  
+  *"In 3 months, before seated circle times and stationary hallway lineups, the student will engage in 5 minutes of 'heavy-work' muscle loading to remain seated on a wobble cushion and maintain line boundaries without peer collisions in 85% of opportunities."*
+* **3 Sequential Milestones (Directly Mapped to Incident 1 & Incident 2):**
+  1. **[Directly Solves Incident 1]:** Push a 6-lb medicine ball across therapy room for 3 minutes before carpet story, sitting on a dynamic balance cushion for 10 minutes.
+  2. **[Directly Solves Incident 2]:** Carry a 4-lb weighted sensory backpack or book crate during hallway transitions to provide deep joint compression.
+  3. **[Generalization across settings]:** Squeeze a firm resistance stress ball when feeling the impulse to jump or crash into peers.
+* **Correlation Metrics:** **Neurological & Sensory Regulation (Pillars 1 & 2)** | **Correlation Match: 92%**  
+* **Why AI Suggested This:** Delivers proactive proprioceptive compression before sedentary periods (Incident 1) and hallway waits (Incident 2), eliminating peer collisions.
 
 ---
 
-### CASE 9: Difficult Transitions (Ending Screen / Tablet Time)
-* **Diagnosis:** Autism Spectrum Disorder Level 1, Rigid Routines.
-* **1 Specific Primary Input Logged:**  
-  * **Antecedent:** Tablet learning session time finished.  
-  * **Behavior:** Screaming, throwing tablet onto floor (Severity: 4/5).  
-  * **Consequence:** Tablet confiscated, 25-minute dysregulation.
-* **AI Suggested SMART Goal (Direct Focus on this 1 Input):**  
-  *"In 3 months, using 5-minute and 2-minute visual countdown timers, the student will turn off tablet and move to desk within 2 minutes peacefully in 4 of 5 sessions."*
-* **3 Sequential Milestones:**
-  1. Acknowledge the 5-minute timer alarm with a thumbs up or nod.
-  2. Put tablet into charging dock when final alarm chimes.
-  3. Walk to study desk using daily visual picture schedule with zero aggression.
-* **Correlation Metrics:** **Transition Flexibility (Pillar 2)** | **Correlation Match: 89%**  
-* **Why AI Suggested This:** Multi-stage visual countdowns buffer transition surprise and eliminate abrupt transition tantrums.
+### CASE 9 (DUAL-INCIDENT CLUSTER): High-Dopamine Screen Transitions
+* **Clinical Profile:** Age 11 | Diagnosis: Autism Spectrum Disorder Level 1, Rigid Routines.
+* **INCIDENT 1 (Tablet Time Cutoff Tantrum):**
+  * **Antecedent (A):** Teacher said 'Tablet time is finished' and reached to collect educational iPad.
+  * **Behavior (B):** Screamed loudly, gripped tablet with force, and threw it onto carpet (Severity: 4/5, Duration: 20 mins, Location: Classroom A).
+  * **Consequence (C):** Device confiscated for remainder of day; 20-minute de-escalation period required.
+* **INCIDENT 2 (Computer Lab Transition Tantrum):**
+  * **Antecedent (A):** Lab timer bell rang signaling conclusion of desktop game time.
+  * **Behavior (B):** Slammed mouse repeatedly onto desk, kicked chair, and refused to stand (Severity: 3/5, Duration: 10 mins, Location: Computer Lab).
+  * **Consequence (C):** Aide provided verbal de-escalation and waited for class to exit before guiding student.
+* **AI Unified SMART Goal (Synthesizes Both Incidents):**  
+  *"In 3 months, across tablet and desktop sessions, the student will utilize dual 5-minute and 2-minute visual countdown timers to power down devices and transition to study tables within 2 minutes peacefully in 4 of 5 sessions."*
+* **3 Sequential Milestones (Directly Mapped to Incident 1 & Incident 2):**
+  1. **[Directly Solves Incident 1]:** Respond to a 5-minute visual tablet timer by giving a thumbs-up, placing tablet into charging dock when final chime sounds.
+  2. **[Directly Solves Incident 2]:** Click 'Save & Close' on computer lab desktop upon 2-minute warning bell and push chair in calmly.
+  3. **[Generalization across settings]:** Walk from screen station to academic desk following personal picture schedule with zero physical aggression.
+* **Correlation Metrics:** **Behavioral Flexibility & Transition (Pillar 2)** | **Correlation Match: 90%**  
+* **Why AI Suggested This:** Replaces sudden verbal cutoffs across both tablet (Incident 1) and computer lab (Incident 2) with predictable dual-stage visual warnings.
 
 ---
 
-### CASE 10: Social Conversation & Isolation
-* **Diagnosis:** Mild Autism (High-Functioning / Asperger's profile), Social Shyness.
-* **1 Specific Primary Input Logged:**  
-  * **Antecedent:** Paired classroom group project assigned.  
-  * **Behavior:** Sat with head on desk, zero interaction with assigned peer partner (Severity: 2/5).  
-  * **Consequence:** Teacher prompted partner to lead.
-* **AI Suggested SMART Goal (Direct Focus on this 1 Input):**  
-  *"In 4 months, during pair classroom activities, the student will ask 2 project questions to a peer partner using a question-prompt card in 3 out of 4 collaborative sessions."*
-* **3 Sequential Milestones:**
-  1. Practice 2 project questions with speech therapist in 1-on-1 prep session.
-  2. Ask partner 1 question during partner activity using a script prompt card.
-  3. Exchange 2 comments with partner concerning their shared class drawing/assignment.
-* **Correlation Metrics:** **Pragmatic Communication (Pillars 1 & 3)** | **Correlation Match: 86%**  
-* **Why AI Suggested This:** Scaffolds adolescent peer communication through visual script prompt cards without overwhelming social pressure.
+### CASE 10 (DUAL-INCIDENT CLUSTER): Adolescent Social Avoidance
+* **Clinical Profile:** Age 15 | Diagnosis: Autism Spectrum Disorder (High-Functioning / Asperger profile), Social Anxiety.
+* **INCIDENT 1 (Paired Academic Collaboration Freeze):**
+  * **Antecedent (A):** Teacher paired student with a peer for collaborative poster drawing project.
+  * **Behavior (B):** Sat with head down on desk, turned back toward partner, and produced zero verbal or written communication (Severity: 2/5, Duration: 15 mins, Location: Art Room).
+  * **Consequence (C):** Teacher instructed peer partner to proceed independently.
+* **INCIDENT 2 (Unstructured Cafeteria Isolation):**
+  * **Antecedent (A):** Peer approached cafeteria table and asked 'Can I sit here?'.
+  * **Behavior (B):** Immediately stood up, picked up lunch tray, and walked to empty corner radiator to eat alone (Severity: 1/5, Duration: 5 mins, Location: Cafeteria).
+  * **Consequence (C):** Observed by staff; student remained isolated.
+* **AI Unified SMART Goal (Synthesizes Both Incidents):**  
+  *"In 4 months, during structured pair projects and shared lunch settings, the student will utilize structured conversational script cards to engage in reciprocal social interactions in 3 out of 4 opportunities."*
+* **3 Sequential Milestones (Directly Mapped to Incident 1 & Incident 2):**
+  1. **[Directly Solves Incident 1]:** Practice 2 project questions with speech therapist in 1-on-1 prep, then ask peer partner 1 question using script prompt card.
+  2. **[Directly Solves Incident 2]:** Remain seated at lunch table when approached by peer, utilizing a visual cue card to give a 1-sentence response.
+  3. **[Generalization across settings]:** Exchange 2 reciprocal project comments with partner concerning their shared educational drawing.
+* **Correlation Metrics:** **Pragmatic Adolescent Communication (Pillars 1 & 3)** | **Correlation Match: 87%**  
+* **Why AI Suggested This:** Scaffolds adolescent peer communication across both academic pair work (Incident 1) and informal lunch interactions (Incident 2) through structured prompt cards.
 
 ---
 
@@ -192,18 +228,18 @@ Our backend code ([backend/routers/ai_insights.py](file:///C:/Users/HP/Downloads
 **Rating Scale:**  
 `1 = Poor` | `2 = Needs Work` | `3 = Acceptable` | `4 = Good` | `5 = Excellent`
 
-| Case # | Case Name & Evaluation Type | 1. Safety (No Harmful Advice) | 2. Clinical Relevance (Matches Input) | 3. SMART Measurability | 4. Practical for Therapists | 5. Child-Friendly & Positive | 6. Correlation Accuracy | Overall Score (Out of 5) |
+| Case # | Case Name & Dual-Incident Focus | 1. Safety (No Harmful Advice) | 2. Clinical Relevance (Matches Input) | 3. SMART Measurability | 4. Practical for Therapists | 5. Child-Friendly & Positive | 6. Correlation Accuracy | Overall Score (Out of 5) |
 |:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **01** | Ahmed Hassan (Multi-Incident Cluster) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **02** | Sara Ahmed (Multi-Incident Cluster) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **03** | Omar Malik (Down Syndrome / AAC Tablet) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **04** | Zara Khan (Cerebral Palsy / Motor Regression) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **05** | Food Selectivity / Peanut Allergen Safety | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **06** | Elopement / Corridor Door Safety | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **07** | Worksheet & Timed Test Anxiety | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **08** | Proprioceptive Energy & Crash Seeking | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **09** | Screen Transition Resistance | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **10** | Social Interaction / Peer Partner Work | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **01** | Ahmed Hassan (Intercom + Transition) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **02** | Sara Ahmed (Fatigue + Window Distraction) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **03** | Omar Malik (Peer Conflict + Clean-up) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **04** | Zara Khan (Utensil + Puzzle Drop) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **05** | Food Selectivity (Wet Puree + Cold Yogurt) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **06** | Elopement Risk (Classroom + Gym Exit) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **07** | Worksheet & Board Anxiety | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **08** | Proprioceptive Craving (Carpet + Hallway) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **09** | Screen Transition (Tablet + PC Lab) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **10** | Adolescent Social (Pair Work + Lunch Table) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
 | **AVG**| **ALL CASES COMPOSITE AVERAGE** | **[ ] / 5** | **[ ] / 5** | **[ ] / 5** | **[ ] / 5** | **[ ] / 5** | **[ ] / 5** | **[ ] / 5.0** |
 
 ---
