@@ -13,13 +13,13 @@
 
 ---
 
-## 13 CLINICALLY GROUNDED EVALUATION CASE STUDIES (STRICTLY CONFINED TO THE 4 CORE DISORDERS)
+## 13 CLINICALLY GROUNDED EVALUATION CASE STUDIES (13 UNIQUE STUDENT PROFILES)
 
 ---
 
 ### GROUP A: AUTISM SPECTRUM DISORDER (ASD) CASES
 
-#### CASE 1 (ASD — DUAL-INCIDENT CLUSTER): Ahmed Hassan (student-001 in Database)
+#### CASE 1 (ASD — DUAL-INCIDENT CLUSTER): Ahmed Hassan
 * **Core Diagnosis:** Autism Spectrum Disorder (ASD Level 2), Active Seizure Protocol (Place on side, do not restrain, call nurse), Peanut Allergy.
 * **INCIDENT 1 (Auditory Sensory Overload):**
   * **Antecedent (A):** Loud announcement blasted through classroom intercom speaker unexpectedly.
@@ -27,7 +27,7 @@
   * **Consequence (C):** Teacher escorted Ahmed to quiet sensory corner until crying subsided.
 * **INCIDENT 2 (Rigid Routine & Unannounced Transition):**
   * **Antecedent (A):** Teacher announced sudden switch from preferred drawing activity to math desk work without visual warning.
-  * **Behavior (B):** Swept drawing materials off table, threw crayons onto floor, refused to move (Severity: 4/5, Duration: 15 mins, Classroom A).
+  * **Behavior (B):** Swept drawing materials off table, threw crayons onto floor, refused to move (Severity: 4/5, Duration: 15 mins, Location: Classroom A).
   * **Consequence (C):** Staff provided one-on-one verbal calming prompts and presented a visual timer.
 * **AI Unified SMART Goal (Synthesizes Both ASD Triggers):**  
   *"In 3 months, when loud intercom announcements or unexpected classroom transitions occur, Ahmed will independently don noise-cancelling headphones or follow a personal 3-step visual schedule, reducing disruptive screaming/throwing meltdowns from 4 times/week to 1 time/week."*
@@ -37,10 +37,10 @@
   3. Present a visual 'Quiet Card' to staff to take a calm 2-minute break in 4 out of 5 distress situations.
 * **Correlation Metrics:** **Multi-Pillar Sensory & Transition (Pillars 1 & 2)** | **Correlation Match: 93%**
 
-#### CASE 2 (ASD — SINGLE AUDITORY FOCUS): Ahmed Hassan
-* **Core Diagnosis:** Autism Spectrum Disorder (ASD), Seizure Protocol Active.
-* **ABC Incident Logged:** School bell rang unexpectedly → Screaming, covering ears, bilateral body rocking → Escorted to quiet room.
-* **AI Suggested Goal:** *"In 3 months, when loud bells ring, Ahmed will wear his noise-cancelling headphones or show a break card, reducing screaming from 4 times a week to 1 time."*
+#### CASE 2 (ASD — SINGLE AUDITORY FOCUS): Zohaib Khan
+* **Core Diagnosis:** Autism Spectrum Disorder (ASD), Auditory Defensive Sensitivity.
+* **ABC Incident Logged:** School bell rang unexpectedly → Screaming, covering ears, bilateral body rocking (Severity: 3/5) → Escorted to quiet room.
+* **AI Suggested Goal:** *"In 3 months, when loud bells ring, Zohaib will wear his noise-cancelling headphones or show a break card, reducing screaming from 4 times a week to 1 time."*
 * **3 Milestones:**
   1. Wear headphones for 5 minutes before scheduled bell with teacher guidance.
   2. Point to 'Quiet Card' when ambient classroom room is too noisy.
@@ -87,12 +87,12 @@
   3. Exchange 2 reciprocating comments with partner concerning their shared class drawing.
 * **Correlation Metrics:** **Pragmatic Communication (Pillars 1 & 3)** | **Correlation Match: 86%**
 
-#### CASE 7 (ASD — MULTI-INPUT: BEHAVIORAL INCIDENT + ADAPTIVE SKILL REGRESSION): Bilal Farooq
-* **Core Diagnosis:** Autism Spectrum Disorder (Level 2), Sensory Processing Sensitivity.
+#### CASE 7 (ASD — MULTI-INPUT: BEHAVIORAL INCIDENT + ADAPTIVE SKILL REGRESSION): Mustafa Kamal
+* **Core Diagnosis:** Autism Spectrum Disorder (Level 2), Sensory Tactile Defensive.
 * **INPUT 1 (ABC Behavioral Incident):** High ambient noise and crowding in cafeteria during lunch transition → Covered ears, high-pitched screaming, dropped to floor (Severity: 4/5).
 * **INPUT 2 (Active Skill Regression Alert):** Regressed Skill: *"Independent Shoe-Tying & Adaptive Dressing"* declined sharply from **75% baseline down to 25%** due to sensory defensive tactile regression.
 * **AI Unified SMART Goal (Sensory Coping + Dressing Skill Recovery):**  
-  *"In 3 months, during noisy transitional routines, Bilal will independently put on noise-cancelling earmuffs and utilize adaptive Velcro lacing, reducing meltdowns from 4 times/week to 1 time/week and rehabilitating independent footwear dressing from 25% to 70%."*
+  *"In 3 months, during noisy transitional routines, Mustafa will independently put on noise-cancelling earmuffs and utilize adaptive Velcro lacing, reducing meltdowns from 4 times/week to 1 time/week and rehabilitating independent footwear dressing from 25% to 70%."*
 * **3 Sequential Milestones:**
   1. Don noise-cancelling earmuffs within 30 seconds of high ambient hallway noise with minimal prompt.
   2. Practice securing adaptive loop fasteners on sensory footwear with 50% independence in OT sessions.
@@ -103,15 +103,15 @@
 
 ### GROUP B: ADHD (ATTENTION-DEFICIT / HYPERACTIVITY DISORDER) CASES
 
-#### CASE 8 (ADHD — DUAL-INCIDENT CLUSTER): Sara Ahmed (student-002 in Database)
+#### CASE 8 (ADHD — DUAL-INCIDENT CLUSTER): Sara Ahmed
 * **Core Diagnosis:** ADHD (Combined Inattentive & Hyperactive-Impulsive Type).
 * **INCIDENT 1 (Sedentary Academic Fatigue):**
   * **Antecedent (A):** Continuous desk writing assignment lasting longer than 10 minutes.
-  * **Behavior (B):** Tipped chair back, got out of seat, wandered around classroom, interrupted peers (Severity: 2/5, Duration: 5 mins, Classroom B).
+  * **Behavior (B):** Tipped chair back, got out of seat, wandered around classroom, interrupted peers (Severity: 2/5, Duration: 5 mins, Location: Classroom B).
   * **Consequence (C):** Teacher gave a 1-minute movement break then verbally prompted her to resume task.
 * **INCIDENT 2 (Environmental Sensory Distraction):**
   * **Antecedent (A):** Desk positioned adjacent to classroom window overlooking active playground during independent math worksheet.
-  * **Behavior (B):** Tapped pencil loudly on desk, stared outdoors, refused to begin worksheet (Severity: 2/5, Duration: 8 mins, Classroom B).
+  * **Behavior (B):** Tapped pencil loudly on desk, stared outdoors, refused to begin worksheet (Severity: 2/5, Duration: 8 mins, Location: Classroom B).
   * **Consequence (C):** Teacher moved desk orientation away from window and repeated instructions.
 * **AI Unified SMART Goal (Synthesizes Both Incidents):**  
   *"In 3 months, during structured desk activities, Sara will sustain seated on-task attention for 15 continuous minutes using an active sensory cushion, window visual shielding, and a visual sand timer in 4 of 5 sessions."*
@@ -121,10 +121,10 @@
   3. Proactively display a 'Movement Pass' to request a 1-minute scheduled motor break instead of wandering off-seat.
 * **Correlation Metrics:** **Behavioral & Attention Regulation (Pillar 2)** | **Correlation Match: 89%**
 
-#### CASE 9 (ADHD — SINGLE SEDENTARY FOCUS): Sara Ahmed
-* **Core Diagnosis:** ADHD (Combined Type).
+#### CASE 9 (ADHD — SINGLE SEDENTARY FOCUS): Ayla Noor
+* **Core Diagnosis:** ADHD (Predominantly Hyperactive Type).
 * **ABC Incident Logged:** During 30-min quiet desk work → Repeatedly leaves seat, taps desk incessantly, wanders to peer desks → Teacher verbal reminder.
-* **AI Suggested Goal:** *"In 3 months, Sara will remain seated and engaged in desk activities for 15 continuous minutes using a sensory seat cushion and sand timer."*
+* **AI Suggested Goal:** *"In 3 months, Ayla will remain seated and engaged in desk activities for 15 continuous minutes using a sensory seat cushion and sand timer."*
 * **3 Milestones:**
   1. Sit for 5 minutes with a silent desk fidget tool.
   2. Complete 1 worksheet using a 10-minute visual sand timer.
@@ -145,7 +145,7 @@
 
 ### GROUP C: DOWN SYNDROME CASES
 
-#### CASE 11 (DOWN SYNDROME — PEER TURN-TAKING & ARTICULATION DELAY): Omar Malik (student-003)
+#### CASE 11 (DOWN SYNDROME — PEER TURN-TAKING & ARTICULATION DELAY): Omar Malik
 * **Core Diagnosis:** Down Syndrome (Trisomy 21), Moderate Speech Delay & Articulation Impairment.
 * **ABC Incident Logged:** Peer took drawing crayon during group art → Omar physically pushed peer and cried loudly (Severity: 3/5) → Crayon removed by teacher.
 * **AI Suggested Goal:** *"In 3 months, when Omar wants a shared toy/crayon, he will use his AAC speech tablet or hand a 'My Turn' picture card in 80% of situations."*
@@ -155,10 +155,10 @@
   3. Wait patiently for 30 seconds after asking before getting the toy in 4 of 5 trials.
 * **Correlation Metrics:** **Clinical & Speech Delay (Pillars 1 & 2)** | **Correlation Match: 90%**
 
-#### CASE 12 (DOWN SYNDROME — ROUTINE CHANGE RESISTANCE & CLEANUP): Omar Malik (student-003)
+#### CASE 12 (DOWN SYNDROME — ROUTINE CHANGE RESISTANCE & CLEANUP): Zainab Shah
 * **Core Diagnosis:** Down Syndrome, Cognitive Developmental Delay.
 * **ABC Incident Logged:** Cleanup bell sounded and toy box presented → Threw toy box onto carpet, screamed 'No!', flopped to floor (Severity: 3/5) → Hand-over-hand teacher support.
-* **AI Suggested Goal:** *"In 3 months, during structured activity cleanup transitions, Omar will follow a 3-step 'First Pack-Up, Then Snack' visual schedule to put away 3 toys cooperatively in 4 of 5 opportunities."*
+* **AI Suggested Goal:** *"In 3 months, during structured activity cleanup transitions, Zainab will follow a 3-step 'First Pack-Up, Then Snack' visual schedule to put away 3 toys cooperatively in 4 of 5 opportunities."*
 * **3 Milestones:**
   1. Pick up and place 1 toy into storage bin with hand-over-hand physical prompt.
   2. Put away 3 toys independently following verbal prompt and visual token board.
@@ -169,7 +169,7 @@
 
 ### GROUP D: CEREBRAL PALSY CASES
 
-#### CASE 13 (CEREBRAL PALSY — ACTIVE FINE MOTOR UTENSIL REGRESSION ALERT): Zara Khan (student-004)
+#### CASE 13 (CEREBRAL PALSY — ACTIVE FINE MOTOR UTENSIL REGRESSION ALERT): Zara Khan
 * **Core Diagnosis:** Cerebral Palsy (Spastic Diplegia), Wheelchair User, Fine Motor Palmar Limitation.
 * **Active Regression Alert (Pillar 3):** Regressed Skill: *"Palmar Utensil Grasp for Self-Feeding"* dropped from **80% baseline down to 35%** after extended holiday absence.
 * **ABC Incident Logged (Pillar 2):** Cafeteria lunch → Struggled to hold standard spoon, dropped food, threw utensil in frustration and cried (Severity: 3/5, Cafeteria).
@@ -188,21 +188,21 @@
 **Rating Scale:**  
 `1 = Poor` | `2 = Needs Work` | `3 = Acceptable` | `4 = Good` | `5 = Excellent`
 
-| Case # | Case Focus & Disorder Category | 1. Safety (No Harmful Advice) | 2. Clinical Relevance (Matches Need) | 3. SMART Measurability | 4. Practical for Therapists | 5. Child-Friendly & Positive | 6. Correlation Accuracy | Overall Score (Out of 5) |
-|:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **01** | **ASD:** Ahmed Hassan (Dual-Incident Cluster) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **02** | **ASD:** Ahmed Hassan (Single Auditory Focus) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **03** | **ASD:** Bilal Farooq (Sensory Texture & Allergen) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **04** | **ASD:** Zayan Tariq (Elopement & Safety) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **05** | **ASD:** Hamza Raza (Screen Transition Meltdown) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **06** | **ASD:** Daniyal Ali (Pragmatic Social Isolation) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **07** | **ASD:** Bilal Farooq (Incident + Dressing Regression) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **08** | **ADHD:** Sara Ahmed (Dual-Incident Cluster) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **09** | **ADHD:** Sara Ahmed (Single Desk Fatigue Focus) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **10** | **ADHD:** Rayan Kashif (Proprioceptive Crashing) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **11** | **Down Syndrome:** Omar Malik (Peer Crayon Conflict) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **12** | **Down Syndrome:** Omar Malik (Routine Cleanup Flop) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
-| **13** | **Cerebral Palsy:** Zara Khan (Utensil Grasp Regression) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| Case # | Student Name | Core Disorder | 1. Safety | 2. Relevance | 3. SMART | 4. Practical | 5. Positive | 6. Correlation | Overall Score (Out of 5) |
+|:---:|:---|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **01** | **Ahmed Hassan** | Autism Spectrum Disorder (ASD) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **02** | **Zohaib Khan** | Autism Spectrum Disorder (ASD) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **03** | **Bilal Farooq** | Autism Spectrum Disorder (ASD) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **04** | **Zayan Tariq** | Autism Spectrum Disorder (ASD) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **05** | **Hamza Raza** | Autism Spectrum Disorder (ASD) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **06** | **Daniyal Ali** | Autism Spectrum Disorder (ASD) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **07** | **Mustafa Kamal** | Autism Spectrum Disorder (ASD) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **08** | **Sara Ahmed** | ADHD (Inattentive/Hyperactive) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **09** | **Ayla Noor** | ADHD (Inattentive/Hyperactive) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **10** | **Rayan Kashif** | ADHD (Sensory/Motor Seeking) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **11** | **Omar Malik** | Down Syndrome (Trisomy 21) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **12** | **Zainab Shah** | Down Syndrome (Trisomy 21) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **13** | **Zara Khan** | Cerebral Palsy (Spastic Diplegia)| [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
 | **AVG**| **ALL CASES COMPOSITE AVERAGE** | **[ ] / 5** | **[ ] / 5** | **[ ] / 5** | **[ ] / 5** | **[ ] / 5** | **[ ] / 5** | **[ ] / 5.0** |
 
 ---
