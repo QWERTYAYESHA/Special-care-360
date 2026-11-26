@@ -149,7 +149,7 @@ export default function CarePlanTab({ studentId, carePlan: initial, canEdit, onC
 
           {aiSummary && (
             <p style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginBottom: "14px", fontStyle: "italic" }}>
-              "{aiSummary}"
+              &ldquo;{aiSummary}&rdquo;
             </p>
           )}
 
