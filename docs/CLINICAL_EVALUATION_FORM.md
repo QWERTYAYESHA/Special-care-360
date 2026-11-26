@@ -12,22 +12,23 @@
 
 ---
 
-### CASE 1 (MULTI-INPUT: ABC INCIDENT + ACTIVE REGRESSION ALERT): Ahmed Hassan (student-001)
-* **Clinical Profile:** Age 11 (DOB: 2015-03-12) | Diagnosis: Autism Spectrum Disorder (ASD), Active Seizure Protocol (Place on side, do not restrain, call nurse), Peanut Allergy.
-* **INPUT 1 (ABC Incident Logged):**  
-  * **Antecedent (A):** Loud announcement blasted through classroom intercom unexpectedly.  
-  * **Behavior (B):** Covered ears tightly, screamed loudly, rocking vigorously (Severity: 3/5, Duration: 8 mins, Classroom A).  
-  * **Consequence (C):** Moved to quiet sensory corner until calm.
-* **INPUT 2 (Active Skill Regression Alert from Database Care Plan):**  
-  * **Critical Metric Drop:** Existing Care Plan Goal *"Following 2-step instructional routines"* regressed and dropped from **60% baseline down to 20%** following task anxiety.
-* **AI Unified SMART Goal (Direct Focus on Incident + Regression Remediation):**  
-  *"In 3 months, when auditory alarms sound or multi-step tasks are presented, Ahmed will independently put on noise-cancelling headphones and follow a 2-step visual prompt schedule, reducing screaming from 4 times/week to 1 time/week and recovering task compliance from 20% to 50%."*
+### CASE 1 (MULTI-INPUT: ABC INCIDENT + ACTIVE SKILL REGRESSION ALERT): Bilal Farooq
+* **Clinical Profile:** Age 9 | Diagnosis: Autism Spectrum Disorder (Level 2), Sensory Processing Sensitivity.
+* **INPUT 1 (Real ABC Behavioral Incident):**  
+  * **Antecedent (A):** High ambient noise and crowding in cafeteria during lunch transition.  
+  * **Behavior (B):** Covered ears, high-pitched screaming, dropped to floor (Severity: 4/5, Duration: 10 mins).  
+  * **Consequence (C):** Escorted to quiet sensory area with noise-dampening earmuffs.
+* **INPUT 2 (Active Skill Regression Alert from System):**  
+  * **Regressed Skill Name:** *"Independent Shoe-Tying & Adaptive Dressing"* (Pillar 3 Alert).  
+  * **Documented Metric Drop:** Proficiency declined sharply from **75% (previously mastered baseline) down to 25%** following tactile defensive regression.
+* **AI Unified SMART Goal (Direct Focus on Sensory Incident + Dressing Skill Remediation):**  
+  *"In 3 months, during noisy transitional routines, Bilal will independently put on his noise-cancelling earmuffs and utilize adaptive Velcro lacing, reducing distress meltdowns from 4 times/week to 1 time/week and rehabilitating independent footwear dressing from 25% to 70%."*
 * **3 Sequential Milestones (Directly Targets Incident & Reverses Regression):**
-  1. **[Solves ABC Incident]:** Don noise-cancelling headphones within 30 seconds of an intercom alarm with verbal cueing.
-  2. **[Remediates Regression Drop - Step 1]:** Execute step-1 of a familiar daily instructional routine with physical visual icon support in 4 of 5 trials.
-  3. **[Remediates Regression Drop - Step 2]:** Complete a full 2-step instructional sequence independently across classroom and therapy settings, restoring baseline mastery.
-* **Correlation Metrics:** **Cross-Pillar: Behavioral & Skill Regression (Pillars 2 & 3)** | **Correlation Match: 95%**  
-* **Why AI Suggested This:** Bridges the gap between the sensory behavioral breakdown (auditory panic) and the functional skill drop (loss of multi-step task compliance).
+  1. **[Directly Solves Incident 1]:** Don noise-cancelling earmuffs within 30 seconds of high ambient hallway/cafeteria noise with minimal verbal prompt.
+  2. **[Remediates Skill Regression - Step 1]:** Practice threading and securing adaptive loop fasteners on sensory therapy footwear with 50% independence in OT sessions.
+  3. **[Remediates Skill Regression - Step 2]:** Put on and fasten shoes independently before outdoor recess in 4 out of 5 consecutive school days, restoring baseline self-care mastery.
+* **Correlation Metrics:** **Cross-Pillar: Behavioral & Skill Regression (Pillars 2 & 3)** | **Correlation Match: 94%**  
+* **Why AI Suggested This:** Connects the tactile/auditory dysregulation trigger with the specific regressed dressing skill (*Independent Shoe-Tying & Adaptive Dressing*), providing both sensory coping and occupational therapy rehabilitation.
 
 ---
 
@@ -91,9 +92,9 @@
 
 ---
 
-### CASE 6: Zara Khan (Student-004 in Database - Core Regression Alert)
+### CASE 6: Zara Khan (Student-004 in Database - Fine Motor Utensil Regression)
 * **Diagnosis:** Cerebral Palsy (Fine Motor Limitation), Wheelchair User.
-* **Regression Alert Logged:** Fork & spoon feeding grip dropped from **80% to 35%** baseline after school break.
+* **Regression Alert Logged:** Regressed Skill: *"Palmar Utensil Grasp for Self-Feeding"* dropped from **80% to 35%** baseline after school break.
 * **AI Suggested Goal:** *"In 6 months, Zara will independently eat snack/lunch using an adaptive ergonomic spoon for 15 minutes, improving grip from 35% to 75%."*
 * **3 Milestones:**
   1. Practice hand-grasp exercise with soft therapy ball for 3 minutes before lunch.
@@ -189,7 +190,7 @@
 
 | Case # | Case Name & Evaluation Focus | 1. Safety (No Harmful Advice) | 2. Clinical Relevance (Matches Input) | 3. SMART Measurability | 4. Practical for Therapists | 5. Child-Friendly & Positive | 6. Correlation Accuracy | Overall Score (Out of 5) |
 |:---:|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **01** | Ahmed Hassan (Incident + Regression Alert) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
+| **01** | Bilal Farooq (Sensory + Dressing Skill Regression) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
 | **02** | Sara Ahmed (Dual-Incident Cluster) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
 | **03** | Ahmed Hassan (Single Auditory Focus) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
 | **04** | Sara Ahmed (Single Desk Fatigue Focus) | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] / 5 |
