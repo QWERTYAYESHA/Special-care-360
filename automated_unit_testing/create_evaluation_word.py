@@ -16,7 +16,7 @@ def create_clean_text_docx():
         section.left_margin = Inches(0.75)
         section.right_margin = Inches(0.75)
 
-    # Standard clean body font: Arial / Calibri clean reading
+    # Standard clean body font: Calibri clean typography
     normal_style = doc.styles['Normal']
     normal_style.font.name = 'Calibri'
     normal_style.font.size = Pt(11)
@@ -73,10 +73,6 @@ def create_clean_text_docx():
     ''')
     cell._tc.get_or_add_tcPr().append(borders)
 
-    cp = cell.paragraphs[0]
-    cp.paragraph_format.space_before = Pt(4)
-    cp.paragraph_format.space_after = Pt(4)
-    
     def add_info_row(label, text):
         p = cell.add_paragraph() if cell.paragraphs and cell.paragraphs[0].text else cell.paragraphs[0]
         p.paragraph_format.space_before = Pt(2)
@@ -91,6 +87,7 @@ def create_clean_text_docx():
     add_info_row("Target Core Disorders", "1. Autism Spectrum Disorder (ASD)\n2. ADHD (Attention-Deficit / Hyperactivity Disorder)\n3. Down Syndrome (Trisomy 21)\n4. Cerebral Palsy (CP)")
     add_info_row("Target Age Range", "Pediatric to Adolescent (0 to 16 Years)")
     add_info_row("Target Reviewers", "Clinical Psychologists, Occupational Therapists (OT), Speech-Language Pathologists (SLP), Special Education Experts")
+    add_info_row("Scope & Focus", "Therapeutic rehabilitation, behavioral management, sensory regulation, and adaptive daily living skills (No formal academic subjects).")
     add_info_row("Clinical Data Foundation", "Tri-Pillar Model (Pillar 1: Medical Diagnosis, Pillar 2: Daily ABC Behavioral Logs, Pillar 3: Active Skill Regressions)")
     add_info_row("Therapeutic Safety Directive", "No external unverified diagnoses. No prescription drugs. All AI suggestions serve as collaborative drafts subject to licensed clinical endorsement.")
 
@@ -157,10 +154,10 @@ def create_clean_text_docx():
         "01", "Ahmed Hassan", "Autism Spectrum Disorder (Level 2) with Seizure & Allergy Protocols",
         [
             ("Patient Background", "Diagnosed with ASD Level 2. High sensitivity to sudden loud sounds. Has an active seizure action plan and peanut allergy.", False, False),
-            ("First ABC Incident (Auditory Overload)", "Antecedent: Loud intercom announcement played unexpectedly in classroom.\nBehavior: Pressed hands over ears, screamed loudly, rocked body for 8 minutes (Severity 3/5).\nConsequence: Escorted by teacher to quiet sensory corner.", False, False),
-            ("Second ABC Incident (Unannounced Transition)", "Antecedent: Abrupt transition from preferred coloring activity to math worksheets with no prior warning.\nBehavior: Threw colored pencils and papers onto the floor, refused to move (Severity 4/5).\nConsequence: Staff provided 1-on-1 verbal calming and visual timer.", False, False),
-            ("AI-Synthesized SMART Goal", '"Within 3 months, when loud intercom announcements or unannounced classroom transitions occur, Ahmed will independently put on noise-cancelling headphones or follow a 3-step visual picture schedule, reducing crying and material-throwing meltdowns from 4 times per week to 1 time per week."', True, False),
-            ("Clinical Milestones", "Milestone 1: Put on noise-cancelling headphones within 30 seconds of an alarm with gentle verbal guidance.\nMilestone 2: Follow a personal 3-step visual picture schedule when switching classroom tasks.\nMilestone 3: Present a visual 'Quiet Card' to teachers to request a calm 2-minute break in 4 out of 5 distress situations.", False, False),
+            ("First ABC Incident (Auditory Overload)", "Antecedent: Loud intercom announcement played unexpectedly in activity room.\nBehavior: Pressed hands over ears, screamed loudly, rocked body for 8 minutes (Severity 3/5).\nConsequence: Escorted by therapist to quiet sensory corner.", False, False),
+            ("Second ABC Incident (Unannounced Transition)", "Antecedent: Abrupt transition from preferred coloring activity to fine-motor bead-stringing task with no prior warning.\nBehavior: Threw colored pencils and papers onto the floor, refused to move (Severity 4/5).\nConsequence: Staff provided 1-on-1 verbal calming and visual timer.", False, False),
+            ("AI-Synthesized SMART Goal", '"Within 3 months, when loud intercom announcements or unannounced activity transitions occur, Ahmed will independently put on noise-cancelling headphones or follow a 3-step visual picture schedule, reducing crying and material-throwing meltdowns from 4 times per week to 1 time per week."', True, False),
+            ("Clinical Milestones", "Milestone 1: Put on noise-cancelling headphones within 30 seconds of an alarm with gentle verbal guidance.\nMilestone 2: Follow a personal 3-step visual picture schedule when switching therapy tasks.\nMilestone 3: Present a visual 'Quiet Card' to staff to request a calm 2-minute break in 4 out of 5 distress situations.", False, False),
             ("Clinical Correlation", "Tri-Pillar Sensory & Routine Adaptation (Pillars 1 & 2) | Match: 93%", False, True)
         ]
     )
@@ -171,9 +168,9 @@ def create_clean_text_docx():
         "02", "Zohaib Khan", "Autism Spectrum Disorder (Auditory Defensive Profile)",
         [
             ("Patient Background", "ASD with high acoustic defensiveness.", False, False),
-            ("Documented ABC Incident", "Antecedent: Scheduled school bell rang unexpectedly.\nBehavior: Bilateral body rocking, crying, hands over ears (Severity 3/5).\nConsequence: Guided into quiet room for 10 minutes.", False, False),
-            ("AI Suggested Goal", '"Within 3 months, when school bells ring, Zohaib will independently put on noise-cancelling headphones or display a break card, reducing screaming from 4 times weekly to 1 time weekly."', True, False),
-            ("Clinical Milestones", "Milestone 1: Wear headphones 5 minutes prior to scheduled bells with teacher prompt.\nMilestone 2: Point to a 'Quiet Card' whenever classroom sound level exceeds personal comfort.\nMilestone 3: Walk calmly through hallways wearing headphones during transitions.", False, False),
+            ("Documented ABC Incident", "Antecedent: Scheduled centre bell rang unexpectedly.\nBehavior: Bilateral body rocking, crying, hands over ears (Severity 3/5).\nConsequence: Guided into quiet room for 10 minutes.", False, False),
+            ("AI Suggested Goal", '"Within 3 months, when loud bells ring, Zohaib will independently put on noise-cancelling headphones or display a break card, reducing screaming from 4 times weekly to 1 time weekly."', True, False),
+            ("Clinical Milestones", "Milestone 1: Wear headphones 5 minutes prior to scheduled bells with therapist prompt.\nMilestone 2: Point to a 'Quiet Card' whenever room sound level exceeds personal comfort.\nMilestone 3: Walk calmly through hallways wearing headphones during transitions.", False, False),
             ("Clinical Correlation", "Behavioral Auditory Modulation (Pillar 2) | Match: 92%", False, True)
         ]
     )
@@ -197,9 +194,9 @@ def create_clean_text_docx():
         "04", "Zayan Tariq", "Autism Spectrum Disorder (Level 3, Non-Verbal Elopement Risk)",
         [
             ("Patient Background", "ASD Level 3, non-verbal, minimal awareness of outdoor and traffic danger.", False, False),
-            ("Documented ABC Incident", "Antecedent: Classroom exterior door opened during group recess transition.\nBehavior: Ran out of the classroom at full speed toward the exit stairs (Severity 5/5 Emergency Elopement).\nConsequence: Staff physically intercepted and returned child safely.", False, False),
+            ("Documented ABC Incident", "Antecedent: Activity room exterior door opened during group outdoor transition.\nBehavior: Ran out of the room at full speed toward the exit stairs (Severity 5/5 Emergency Elopement).\nConsequence: Staff physically intercepted and returned child safely.", False, False),
             ("AI Suggested Goal", '"Within 3 months, during open-door transitions, Zayan will pause at red boundary floor lines and hold an escort ring with staff, achieving zero unescorted corridor elopements."', True, False),
-            ("Clinical Milestones", "Milestone 1: Stop feet upon reaching a visual red 'STOP' line marked at doorway thresholds.\nMilestone 2: Grasp teacher's walking escort ring before stepping into the open corridor.\nMilestone 3: Walk alongside staff from room to outdoor playground in 9 out of 10 daily trials without breaking grasp.", False, False),
+            ("Clinical Milestones", "Milestone 1: Stop feet upon reaching a visual red 'STOP' line marked at doorway thresholds.\nMilestone 2: Grasp therapist\'s walking escort ring before stepping into the open corridor.\nMilestone 3: Walk alongside staff from room to outdoor sensory garden in 9 out of 10 daily trials without breaking grasp.", False, False),
             ("Clinical Correlation", "Immediate Life Safety & Environmental Boundaries (Pillar 2) | Match: 96%", False, True)
         ]
     )
@@ -209,10 +206,10 @@ def create_clean_text_docx():
         None,
         "05", "Hamza Raza", "Autism Spectrum Disorder (Digital Device Transition Rigidity)",
         [
-            ("Patient Background", "ASD Level 1, hyper-focused interest in learning tablets, extreme resistance to ending screen time.", False, False),
-            ("Documented ABC Incident", "Antecedent: Learning tablet session ended after 20 minutes.\nBehavior: Screamed loudly, hurled tablet onto floor, aggressive crying (Severity 4/5).\nConsequence: Device placed away, child required 25 minutes of co-regulation.", False, False),
-            ("AI Suggested Goal", '"Within 3 months, using 5-minute and 2-minute visual countdown timers, Hamza will dock his tablet and transition to desk activities within 2 minutes peacefully in 4 of 5 sessions."', True, False),
-            ("Clinical Milestones", "Milestone 1: Acknowledge the 5-minute yellow visual warning alarm with a thumbs-up gesture.\nMilestone 2: Place tablet into the charging station when the final tone sounds.\nMilestone 3: Transition to study table using a visual schedule with zero verbal or physical protest.", False, False),
+            ("Patient Background", "ASD Level 1, hyper-focused interest in interactive sensory tablets, extreme resistance to ending screen time.", False, False),
+            ("Documented ABC Incident", "Antecedent: Interactive tablet sensory session ended after 20 minutes.\nBehavior: Screamed loudly, hurled tablet onto floor, aggressive crying (Severity 4/5).\nConsequence: Device placed away, child required 25 minutes of co-regulation.", False, False),
+            ("AI Suggested Goal", '"Within 3 months, using 5-minute and 2-minute visual countdown timers, Hamza will dock his tablet and transition to table activities within 2 minutes peacefully in 4 of 5 sessions."', True, False),
+            ("Clinical Milestones", "Milestone 1: Acknowledge the 5-minute yellow visual warning alarm with a thumbs-up gesture.\nMilestone 2: Place tablet into the charging station when the final tone sounds.\nMilestone 3: Transition to table activities using a visual schedule with zero verbal or physical protest.", False, False),
             ("Clinical Correlation", "Rigid Routine Flexibility & Visual Time Management (Pillar 2) | Match: 89%", False, True)
         ]
     )
@@ -222,9 +219,9 @@ def create_clean_text_docx():
         None,
         "06", "Daniyal Ali", "Autism Spectrum Disorder (Pragmatic Social Communication Deficit)",
         [
-            ("Patient Background", "ASD (Asperger profile). Proficient academic performance but marked difficulty in peer social interactions.", False, False),
-            ("Documented ABC Incident", "Antecedent: Teacher assigned collaborative paired project work in class.\nBehavior: Withdrew, put head down on desk, refused all verbal interaction with peer (Severity 2/5).\nConsequence: Teacher completed worksheet with child individually.", False, False),
-            ("AI Suggested Goal", '"Within 4 months, during structured pair activities, Daniyal will initiate 2 task-related questions to his peer using visual dialogue prompt cards in 3 of 4 classroom sessions."', True, False),
+            ("Patient Background", "ASD (Asperger profile). Adequate functional skills but marked difficulty in peer social interactions.", False, False),
+            ("Documented ABC Incident", "Antecedent: Therapist assigned collaborative paired sensory play activity.\nBehavior: Withdrew, put head down on table, refused all verbal interaction with peer (Severity 2/5).\nConsequence: Therapist engaged with child individually.", False, False),
+            ("AI Suggested Goal", '"Within 4 months, during structured pair activities, Daniyal will initiate 2 task-related questions to his peer using visual dialogue prompt cards in 3 of 4 therapy sessions."', True, False),
             ("Clinical Milestones", "Milestone 1: Rehearse 2 conversation question cards with speech therapist in 1-on-1 prep.\nMilestone 2: Deliver 1 structured question to a peer partner during a paired drawing exercise.\nMilestone 3: Exchange 2 reciprocating verbal remarks regarding the shared activity.", False, False),
             ("Clinical Correlation", "Pragmatic Social Communication (Pillars 1 & 3) | Match: 86%", False, True)
         ]
@@ -239,7 +236,7 @@ def create_clean_text_docx():
             ("Documented ABC Incident", "Antecedent: Loud crowded cafeteria during lunchtime.\nBehavior: High-pitched screaming, covered ears, dropped to floor (Severity 4/5).\nConsequence: Staff escorted student to quiet courtyard.", False, False),
             ("Active Skill Regression Alert", "Specific Regressed Skill: 'Independent Shoe-Tying & Adaptive Dressing' declined significantly from 75% baseline down to 25% following sensory defensiveness episode.", False, False),
             ("AI Unified SMART Goal", '"Within 3 months, during noisy transitional routines, Mustafa will put on noise-cancelling earmuffs and use adaptive loop footwear fasteners, reducing meltdowns from 4 times weekly to 1 time weekly and rehabilitating dressing independence from 25% to 70%."', True, False),
-            ("Clinical Milestones", "Milestone 1: Don noise-cancelling earmuffs within 30 seconds of high ambient cafeteria noise.\nMilestone 2: Fasten adaptive loop footwear with 50% independence during occupational therapy sessions.\nMilestone 3: Fasten shoes independently prior to recess in 4 of 5 school days.", False, False),
+            ("Clinical Milestones", "Milestone 1: Don noise-cancelling earmuffs within 30 seconds of high ambient cafeteria noise.\nMilestone 2: Fasten adaptive loop footwear with 50% independence during occupational therapy sessions.\nMilestone 3: Fasten shoes independently prior to outdoor play in 4 of 5 sessions.", False, False),
             ("Clinical Correlation", "Cross-Pillar Sensory Coping & Skill Regression Recovery (Pillars 2 & 3) | Match: 94%", False, True)
         ]
     )
@@ -250,10 +247,10 @@ def create_clean_text_docx():
         "08", "Sara Ahmed", "ADHD (Combined Inattentive & Hyperactive-Impulsive Type)",
         [
             ("Patient Background", "ADHD with high motor restlessness and vulnerability to extraneous environmental stimuli.", False, False),
-            ("First ABC Incident (Sedentary Fatigue)", "Antecedent: Continuous handwriting worksheet exceeding 10 minutes.\nBehavior: Tipped chair backward, left desk, wandered around room, disrupted peers (Severity 2/5).\nConsequence: Teacher provided a 1-minute movement stretch.", False, False),
-            ("Second ABC Incident (Window Distraction)", "Antecedent: Desk faced window showing children playing outside.\nBehavior: Tapped pencil loudly, stared out window, refused worksheet (Severity 2/5).\nConsequence: Desk oriented inward away from window.", False, False),
-            ("AI-Synthesized SMART Goal", '"Within 3 months, during structured desk activities, Sara will sustain seated on-task attention for 15 continuous minutes using an active sensory cushion, window visual shielding, and a visual sand timer in 4 of 5 sessions."', True, False),
-            ("Clinical Milestones", "Milestone 1: Remain seated on an active wobble cushion with a 10-minute visual sand timer.\nMilestone 2: Use a silent handheld tactile fidget tool at an interior-facing desk to complete 1 worksheet without vocal or pencil tapping.\nMilestone 3: Proactively hold up a 'Movement Pass' to request a 1-minute scheduled motor break instead of leaving desk unprompted.", False, False),
+            ("First ABC Incident (Sedentary Fatigue)", "Antecedent: Continuous tabletop pegboard coordination activity lasting longer than 10 minutes.\nBehavior: Tipped chair backward, left table, wandered around room, disrupted peers (Severity 2/5).\nConsequence: Therapist provided a 1-minute movement stretch.", False, False),
+            ("Second ABC Incident (Window Distraction)", "Antecedent: Table faced window showing children playing outside during puzzle assembly.\nBehavior: Tapped puzzle pieces loudly, stared out window, refused task (Severity 2/5).\nConsequence: Table oriented inward away from window.", False, False),
+            ("AI-Synthesized SMART Goal", '"Within 3 months, during structured tabletop activities, Sara will sustain seated on-task attention for 15 continuous minutes using an active sensory cushion, window visual shielding, and a visual sand timer in 4 of 5 sessions."', True, False),
+            ("Clinical Milestones", "Milestone 1: Remain seated on an active wobble cushion with a 10-minute visual sand timer for fine-motor tasks.\nMilestone 2: Use a silent handheld tactile fidget tool at an interior-facing table to complete 1 puzzle assembly without vocal or repetitive tapping.\nMilestone 3: Proactively hold up a 'Movement Pass' to request a 1-minute scheduled motor break instead of leaving table unprompted.", False, False),
             ("Clinical Correlation", "Attention Regulation & Physical Activity Structuring (Pillar 2) | Match: 89%", False, True)
         ]
     )
@@ -264,9 +261,9 @@ def create_clean_text_docx():
         "09", "Ayla Noor", "ADHD (Predominantly Hyperactive Impulsive Type)",
         [
             ("Patient Background", "ADHD with pronounced hyperactivity and difficulty with sustained sedentary tasks.", False, False),
-            ("Documented ABC Incident", "Antecedent: 30-minute quiet classroom reading and writing period.\nBehavior: Repeatedly got out of chair, drummed fingers on desk, wandered to teacher's table (Severity 2/5).\nConsequence: Teacher gave repeated verbal reminders.", False, False),
-            ("AI Suggested Goal", '"Within 3 months, Ayla will remain seated and engaged in desk activities for 15 continuous minutes using a sensory balance cushion and visual sand timer."', True, False),
-            ("Clinical Milestones", "Milestone 1: Complete desk activity for 5 minutes using a silent desk fidget accessory.\nMilestone 2: Complete 1 worksheet within a 10-minute visual sand timer interval.\nMilestone 3: Request a structured 1-minute movement break via a picture card instead of standing up unannounced.", False, False),
+            ("Documented ABC Incident", "Antecedent: 30-minute quiet therapeutic table activity.\nBehavior: Repeatedly got out of chair, drummed fingers on table, wandered to peer tables (Severity 2/5).\nConsequence: Therapist gave repeated verbal reminders.", False, False),
+            ("AI Suggested Goal", '"Within 3 months, Ayla will remain seated and engaged in structured therapy activities for 15 continuous minutes using a sensory balance cushion and visual sand timer."', True, False),
+            ("Clinical Milestones", "Milestone 1: Complete table activity for 5 minutes using a silent handheld fidget tool.\nMilestone 2: Complete 1 sorting activity within a 10-minute visual sand timer interval.\nMilestone 3: Request a structured 1-minute movement break via a picture card instead of standing up unannounced.", False, False),
             ("Clinical Correlation", "Attention Endurance & Motor Pacing (Pillar 2) | Match: 88%", False, True)
         ]
     )
@@ -277,9 +274,9 @@ def create_clean_text_docx():
         "10", "Rayan Kashif", "ADHD with Proprioceptive Sensory Seeking (Motor Crashing)",
         [
             ("Patient Background", "ADHD coupled with high sensory seeking; seeks strong joint compression and movement feedback.", False, False),
-            ("Documented ABC Incident", "Antecedent: Morning carpet circle gathering with entire class.\nBehavior: Threw body onto peers, rolled aggressively across carpet (Severity 3/5).\nConsequence: Guided out of circle to separate mat.", False, False),
+            ("Documented ABC Incident", "Antecedent: Morning carpet circle gathering with group.\nBehavior: Threw body onto peers, rolled aggressively across carpet (Severity 3/5).\nConsequence: Guided out of circle to separate mat.", False, False),
             ("AI Suggested Goal", '"Within 3 months, Rayan will complete 5 minutes of targeted proprioceptive heavy-work exercises prior to circle time, remaining seated on a balance cushion for 12 minutes without peer collision."', True, False),
-            ("Clinical Milestones", "Milestone 1: Push a 6-lb weighted therapy ball across the gym for 3 minutes before morning group.\nMilestone 2: Sit on a balance wobble cushion for 10 minutes during morning story reading.\nMilestone 3: Squeeze resistance therapy dough when feeling an internal impulse to jump or crash.", False, False),
+            ("Clinical Milestones", "Milestone 1: Push a 6-lb weighted therapy ball across the gym for 3 minutes before morning group.\nMilestone 2: Sit on a balance wobble cushion for 10 minutes during morning group session.\nMilestone 3: Squeeze resistance therapy dough when feeling an internal impulse to jump or crash.", False, False),
             ("Clinical Correlation", "Proprioceptive Neuromotor Regulation (Pillars 1 & 2) | Match: 91%", False, True)
         ]
     )
@@ -290,9 +287,9 @@ def create_clean_text_docx():
         "11", "Omar Malik", "Down Syndrome with Speech-Language & Articulation Delay",
         [
             ("Patient Background", "Down Syndrome with expressive language impairment; uses gesture and basic vocalization.", False, False),
-            ("Documented ABC Incident", "Antecedent: Peer took shared coloring crayon during group art.\nBehavior: Pushed peer's shoulder, cried loudly, grabbed crayon back (Severity 3/5).\nConsequence: Crayon removed by teacher; brief time-out given.", False, False),
+            ("Documented ABC Incident", "Antecedent: Peer took shared coloring crayon during group art.\nBehavior: Pushed peer's shoulder, cried loudly, grabbed crayon back (Severity 3/5).\nConsequence: Crayon removed by therapist; brief calming pause given.", False, False),
             ("AI Suggested Goal", '"Within 3 months, when Omar desires a shared toy or utensil, he will use his AAC speech tablet or hand a \'My Turn\' picture card in 80% of opportunities instead of pushing."', True, False),
-            ("Clinical Milestones", "Milestone 1: Press the 'Turn' icon on speech tablet with hand guidance during therapy.\nMilestone 2: Hand 'My Turn' PECS card to instructor when wanting a shared classroom object.\nMilestone 3: Wait patiently for 30 seconds after presenting request card before receiving the item in 4 of 5 trials.", False, False),
+            ("Clinical Milestones", "Milestone 1: Press the 'Turn' icon on speech tablet with hand guidance during therapy.\nMilestone 2: Hand 'My Turn' PECS card to instructor when wanting a shared centre object.\nMilestone 3: Wait patiently for 30 seconds after presenting request card before receiving the item in 4 of 5 trials.", False, False),
             ("Clinical Correlation", "AAC Speech Communication & Peer Socialization (Pillars 1 & 2) | Match: 90%", False, True)
         ]
     )
@@ -469,8 +466,13 @@ def create_clean_text_docx():
     p.add_run("Date of Review: ______________________             Official Signature & Stamp: __________________\n")
 
     save_path = r"c:\Users\HP\Downloads\fyp\docs\CLINICAL_EVALUATION_FORM.docx"
-    doc.save(save_path)
-    print(f"Updated Clean Word Document saved successfully at: {save_path}")
+    try:
+        doc.save(save_path)
+        print(f"Updated Clean Word Document saved successfully at: {save_path}")
+    except PermissionError:
+        alt_path = r"c:\Users\HP\Downloads\fyp\docs\CLINICAL_EVALUATION_FORM_UPDATED.docx"
+        doc.save(alt_path)
+        print(f"Original file was open in Word. Saved to: {alt_path}")
 
 if __name__ == "__main__":
     create_clean_text_docx()

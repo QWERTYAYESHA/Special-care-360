@@ -26,8 +26,8 @@
   * **Behavior (B):** Covered both ears tightly, screamed loudly, started rocking vigorously (Severity: 3/5, Duration: 8 mins, Classroom A).
   * **Consequence (C):** Teacher escorted Ahmed to quiet sensory corner until crying subsided.
 * **INCIDENT 2 (Rigid Routine & Unannounced Transition):**
-  * **Antecedent (A):** Teacher announced sudden switch from preferred drawing activity to math desk work without visual warning.
-  * **Behavior (B):** Swept drawing materials off table, threw crayons onto floor, refused to move (Severity: 4/5, Duration: 15 mins, Location: Classroom A).
+  * **Antecedent (A):** Therapist announced sudden switch from preferred drawing activity to fine-motor bead-stringing task without visual warning.
+  * **Behavior (B):** Swept drawing materials off table, threw crayons onto floor, refused to move (Severity: 4/5, Duration: 15 mins, Location: Activity Room A).
   * **Consequence (C):** Staff provided one-on-one verbal calming prompts and presented a visual timer.
 * **AI Unified SMART Goal (Synthesizes Both ASD Triggers):**  
   *"In 3 months, when loud intercom announcements or unexpected classroom transitions occur, Ahmed will independently don noise-cancelling headphones or follow a personal 3-step visual schedule, reducing disruptive screaming/throwing meltdowns from 4 times/week to 1 time/week."*
@@ -105,30 +105,30 @@
 
 #### CASE 8 (ADHD — DUAL-INCIDENT CLUSTER): Sara Ahmed
 * **Core Diagnosis:** ADHD (Combined Inattentive & Hyperactive-Impulsive Type).
-* **INCIDENT 1 (Sedentary Academic Fatigue):**
-  * **Antecedent (A):** Continuous desk writing assignment lasting longer than 10 minutes.
-  * **Behavior (B):** Tipped chair back, got out of seat, wandered around classroom, interrupted peers (Severity: 2/5, Duration: 5 mins, Location: Classroom B).
-  * **Consequence (C):** Teacher gave a 1-minute movement break then verbally prompted her to resume task.
+* **INCIDENT 1 (Sedentary Activity Fatigue):**
+  * **Antecedent (A):** Continuous tabletop pegboard coordination activity lasting longer than 10 minutes.
+  * **Behavior (B):** Tipped chair back, got out of seat, wandered around therapy room, interrupted peers (Severity: 2/5, Duration: 5 mins, Location: Therapy Room B).
+  * **Consequence (C):** Therapist gave a 1-minute movement break then verbally prompted her to resume task.
 * **INCIDENT 2 (Environmental Sensory Distraction):**
-  * **Antecedent (A):** Desk positioned adjacent to classroom window overlooking active playground during independent math worksheet.
-  * **Behavior (B):** Tapped pencil loudly on desk, stared outdoors, refused to begin worksheet (Severity: 2/5, Duration: 8 mins, Location: Classroom B).
-  * **Consequence (C):** Teacher moved desk orientation away from window and repeated instructions.
+  * **Antecedent (A):** Therapy table positioned adjacent to room window overlooking active playground during independent puzzle assembly.
+  * **Behavior (B):** Tapped puzzle pieces loudly on table, stared outdoors, refused to engage with task (Severity: 2/5, Duration: 8 mins, Location: Therapy Room B).
+  * **Consequence (C):** Therapist moved table orientation away from window and repeated instructions.
 * **AI Unified SMART Goal (Synthesizes Both Incidents):**  
-  *"In 3 months, during structured desk activities, Sara will sustain seated on-task attention for 15 continuous minutes using an active sensory cushion, window visual shielding, and a visual sand timer in 4 of 5 sessions."*
+  *"In 3 months, during structured tabletop activities, Sara will sustain seated on-task attention for 15 continuous minutes using an active sensory cushion, window visual shielding, and a visual sand timer in 4 of 5 sessions."*
 * **3 Sequential Milestones:**
-  1. Maintain seated engagement on a dynamic wobble balance cushion utilizing a 10-minute visual sand timer for desk work.
-  2. Utilize a silent handheld tactile fidget tool at an interior-facing desk to complete 1 worksheet without vocal or pencil tapping.
+  1. Maintain seated engagement on a dynamic wobble balance cushion utilizing a 10-minute visual sand timer for fine-motor tasks.
+  2. Utilize a silent handheld tactile fidget tool at an interior-facing table to complete 1 puzzle assembly without vocal or repetitive tapping.
   3. Proactively display a 'Movement Pass' to request a 1-minute scheduled motor break instead of wandering off-seat.
 * **Correlation Metrics:** **Behavioral & Attention Regulation (Pillar 2)** | **Correlation Match: 89%**
 
 #### CASE 9 (ADHD — SINGLE SEDENTARY FOCUS): Ayla Noor
 * **Core Diagnosis:** ADHD (Predominantly Hyperactive Type).
-* **ABC Incident Logged:** During 30-min quiet desk work → Repeatedly leaves seat, taps desk incessantly, wanders to peer desks → Teacher verbal reminder.
-* **AI Suggested Goal:** *"In 3 months, Ayla will remain seated and engaged in desk activities for 15 continuous minutes using a sensory seat cushion and sand timer."*
+* **ABC Incident Logged:** During 30-min quiet therapeutic table activity → Repeatedly leaves seat, taps table incessantly, wanders to peer tables → Therapist verbal reminder.
+* **AI Suggested Goal:** *"In 3 months, Ayla will remain seated and engaged in structured therapy activities for 15 continuous minutes using a sensory seat cushion and sand timer."*
 * **3 Milestones:**
-  1. Sit for 5 minutes with a silent desk fidget tool.
-  2. Complete 1 worksheet using a 10-minute visual sand timer.
-  3. Ask for a 1-minute movement break using a picture card instead of leaving desk without asking.
+  1. Sit for 5 minutes with a silent handheld fidget tool.
+  2. Complete 1 sorting activity using a 10-minute visual sand timer.
+  3. Ask for a 1-minute movement break using a picture card instead of leaving table without asking.
 * **Correlation Metrics:** **Behavioral & Attention (Pillar 2)** | **Correlation Match: 88%**
 
 #### CASE 10 (ADHD — HYPERACTIVE PROPRIOCEPTIVE CRASHING): Rayan Kashif
